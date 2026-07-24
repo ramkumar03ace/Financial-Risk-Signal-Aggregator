@@ -5,9 +5,23 @@
 
 **Last updated:** 2026-07-24
 **Overall status:** ✅ Working prototype complete, verified end-to-end with a **live**
-Gemini API key, deployed to Railway, pushed to GitHub, and the 5-slide deck is built.
-Remaining: the <3-min demo video (the brief accepts a hosted link OR a video — the
-hosted link is already done, so the video is optional polish, not a blocker).
+Gemini API key, deployed to Railway with a custom-designed UI, pushed to GitHub, and the
+5-slide deck is built. Remaining: the <3-min demo video (the brief accepts a hosted link
+OR a video — the hosted link is already done, so the video is optional polish, not a
+blocker).
+
+**UI redesign (2026-07-24, later):** the original UI used Streamlit defaults (large top
+whitespace, emoji-prefixed labels/tabs, default red/blue alert boxes) — flagged by the
+user as looking generic/templated, plus a real bug: "Load sample dataset" gave no visible
+confirmation. Replaced with a deliberate compliance-tool identity: Source Serif 4
+headlines, IBM Plex Sans/Mono for UI and data, a muted ink/paper palette, and a custom
+colored-chip component (`chip()` in `app.py`) used consistently for AI status, tier
+badges, and KPIs instead of emoji. `.streamlit/config.toml` themes native widgets to
+match and sets `toolbarMode = "minimal"`. The sample-data bug was a real Streamlit
+issue — the text_area widget had both `value=` and a matching `key=` in session_state,
+triggering a silent warning; fixed by relying on `key=` alone. See `inject_theme()` and
+`chip()` in `app.py` before making further UI changes — don't reintroduce emoji or
+Streamlit's default `st.metric`/`st.success`/`st.warning` styling, use `chip()` instead.
 
 ---
 
