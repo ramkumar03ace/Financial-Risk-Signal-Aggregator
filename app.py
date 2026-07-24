@@ -318,23 +318,41 @@ def overview_tab(result: Dict[str, Any]) -> None:
         fig.update_layout(showlegend=False, font_family="IBM Plex Sans")
         st.plotly_chart(fig, use_container_width=True)
     with right:
+        flagged = [e for e in register if e.score > 0][:20]
+        chart_title = (
+            f"Top {len(flagged)} flagged customers (of {len(register)} reviewed)"
+            if flagged
+            else "Risk score by customer"
+        )
         scores = pd.DataFrame(
-            [{"Customer": e.name, "Score": e.score, "Tier": e.tier} for e in register]
+            [{"Customer": e.name, "Score": e.score, "Tier": e.tier} for e in flagged]
         )
-        fig2 = px.bar(
-            scores, x="Score", y="Customer", color="Tier", orientation="h",
-            color_discrete_map=TIER_COLORS, title="Risk score by customer",
-        )
-        fig2.update_layout(
-            yaxis={"categoryorder": "total ascending"}, font_family="IBM Plex Sans"
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+        if scores.empty:
+            st.info("No customers were flagged — nothing to chart.")
+        else:
+            fig2 = px.bar(
+                scores, x="Score", y="Customer", color="Tier", orientation="h",
+                color_discrete_map=TIER_COLORS, title=chart_title,
+            )
+            fig2.update_layout(
+                yaxis={"categoryorder": "total ascending"}, font_family="IBM Plex Sans"
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
 
 def register_tab(result: Dict[str, Any]) -> None:
     register: List[EntityRisk] = result["register"]
+    n_flagged = sum(1 for e in register if e.score > 0)
     st.subheader("Prioritised risk register")
-    df = register_to_df(register)
+
+    show_all = True
+    if n_flagged and n_flagged < len(register):
+        show_all = st.checkbox(
+            f"Show all {len(register)} customers (default: {n_flagged} flagged only)",
+            value=False,
+        )
+    shown = register if show_all else [e for e in register if e.score > 0]
+    df = register_to_df(shown)
 
     def _row_style(row):
         color = TIER_COLORS.get(row["Tier"], "#666")

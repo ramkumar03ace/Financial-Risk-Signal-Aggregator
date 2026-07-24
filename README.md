@@ -60,10 +60,21 @@ so it always works.
 ## Data assumptions
 
 - Synthetic dataset generated for demonstration — **no proprietary or client data**.
+- Scale: **67 customers, 1,971 transactions**, generated with
+  [`scripts/generate_dataset.py`](scripts/generate_dataset.py) (Faker + fixed seed, so
+  it's reproducible). 12 customers carry a distinct planted risk typology
+  (structuring, sanctions/PEP, layering, velocity spike, cash-intensive, round-number
+  wire, KYC+adverse-media); the remaining 55 are genuinely clean, normal-activity
+  customers — proving the system flags the few that matter (11/67) rather than
+  everyone.
 - All amounts are USD; one row per transaction.
 - Thresholds (e.g. `$10k` CTR line, `$50k` wire) are **illustrative and fully
   configurable** in [`config.py`](config.py).
 - External alerts are unstructured text; entities are matched by customer **name**.
+- Only 5 CSV columns are structurally required (`txn_id`, `timestamp`, `customer_id`,
+  `amount`, `txn_type`) and 1 JSON field (`customer_id`) — everything else is optional
+  and degrades gracefully (a missing field just means the rule that depends on it can't
+  fire for that customer; nothing crashes). Extra columns are ignored, not rejected.
 
 ## Setup
 
@@ -107,8 +118,9 @@ Run the rules-only CLI: `python -m src.scoring`
 > media linking him to a bribery probe. The combination of independent signals
 > warrants a Suspicious Activity Report."
 
-The clean control customer (*Priya Shah*) scores **0 / Low** with no signals,
-demonstrating the model does not over-flag.
+Across the full sample (67 customers), only **11 are flagged** and **56 score 0/Low**
+— including the explicit control customer *Priya Shah* — demonstrating the model
+prioritises rather than over-flagging at realistic scale.
 
 ## Deployment
 
@@ -146,7 +158,9 @@ src/ingestion.py  load + join sources     src/rules.py  deterministic signal rul
 src/scoring.py    aggregate -> rank       src/llm.py    Gemini: extract/rationale/summary/Q&A
 src/schemas.py    pydantic models         prompts/      LLM prompt templates
 data/             sample CSV/JSON/text    tests/        pytest scenario tests
+scripts/          generate_dataset.py (regenerate the sample data, seeded/reproducible)
 docs/             5-slide deck + screenshots (docs/Financial_Risk_Signal_Aggregator_Deck.pptx)
+SUMMARY.md        Problem / architecture / implementation / challenges write-up
 ```
 
 ## Submission assets

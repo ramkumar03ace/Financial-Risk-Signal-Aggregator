@@ -23,6 +23,30 @@ triggering a silent warning; fixed by relying on `key=` alone. See `inject_theme
 `chip()` in `app.py` before making further UI changes — don't reintroduce emoji or
 Streamlit's default `st.metric`/`st.success`/`st.warning` styling, use `chip()` instead.
 
+**Dataset scale-up (2026-07-24, later still):** user asked for a bigger, more realistic
+dataset ("close to real"). Replaced the 5-customer demo data with a generated 67-customer,
+1,971-transaction dataset via [`scripts/generate_dataset.py`](scripts/generate_dataset.py)
+(Faker, fixed seed = reproducible). The original 5 hero customers (cust_001..cust_005,
+Ravi Menon/John Doe/Wei Chen/Priya Shah/Sara Lopez) and their exact transactions/alerts
+are preserved unchanged so all 7 pytest scenario tests still pass without modification.
+Added: 7 new distinct suspicious archetypes (cust_006..cust_012, different countries/
+typologies — GB structuring, ZA/MM PEP+sanctions, AE layering, US velocity spike, NG
+cash-intensive, DE round-number wire, PH KYC+adverse-media) and 55 clean background
+customers (cust_013+) with realistic multi-month salary/rent/bills/shopping activity.
+Result: 11 flagged / 56 clean — a real precision demonstration at scale, not just one
+control case.
+
+**Important follow-on fix required by the scale-up:** `overview_tab`'s "Risk score by
+customer" chart used to plot *every* customer — with 67 rows that's unreadable. Now
+filtered to flagged-only (score > 0, capped at 20) and retitled "Top N flagged customers
+(of M reviewed)". `register_tab` now defaults to flagged-only (11) with a checkbox to
+reveal all 67 — both changes directly serve the brief's "help analysts focus on what
+matters" framing, not just cosmetic. If you regenerate the dataset again with a very
+different flagged count, sanity-check these two UI elements still read well.
+
+Re-run `python scripts/generate_dataset.py` any time to regenerate (deterministic, same
+output every time) — e.g. after tuning `config.py` weights, if you want fresh Faker names.
+
 ---
 
 ## TL;DR of what exists
@@ -67,20 +91,29 @@ Run it: `.venv\Scripts\activate` → `streamlit run app.py` → **Load sample da
 
 ## Verified results (reproducible, live Gemini API)
 
-Full pipeline (`data/` sample, real Gemini extraction + rationale) — one representative run:
+Full pipeline on the current 67-customer / 1,971-transaction dataset (real Gemini
+extraction + rationale) — one representative run, showing the 11 flagged customers
+(56 others correctly score 0/Low and are omitted here):
 
 | Rank | Customer | Score | Tier | Top signals | Action |
 |---|---|---|---|---|---|
 | 1 | John Doe | 80 | Critical | high-value wire, high-risk jurisdiction, round number, PEP, adverse media | File SAR |
-| 2 | Ravi Menon | 80 | Critical | structuring, velocity spike, cash intensive, adverse media | File SAR |
-| 3 | Wei Chen | 65 | High | high-value wire, dormant reactivation, pass-through, round number | Enhanced Due Diligence |
-| 4 | Sara Lopez | 30 | Medium | velocity spike, KYC incomplete | Enhanced Due Diligence |
-| 5 | Priya Shah | 0 | Low | (none — control case) | Monitor |
+| 2 | Joshua Diaz | 80 | Critical | high-value wire, high-risk jurisdiction, round number, PEP, adverse media | File SAR |
+| 3 | Ravi Menon | 80 | Critical | structuring, velocity spike, cash intensive, adverse media | File SAR |
+| 4 | Wei Chen | 65 | High | high-value wire, dormant reactivation, pass-through, round number | Enhanced Due Diligence |
+| 5 | Jordan Johnson | 65 | High | high-value wire, dormant reactivation, pass-through, round number | Enhanced Due Diligence |
+| 6 | Chris Curtis | 60 | High | structuring, cash intensive, adverse media | File SAR |
+| 7 | Sara Lopez | 30 | Medium | velocity spike, KYC incomplete | Enhanced Due Diligence |
+| 8 | Benjamin Davis | 30 | Medium | velocity spike, KYC incomplete | Enhanced Due Diligence |
+| 9 | Mark Meza | 20 | Low | high-value wire, round number | Monitor |
+| 10 | Ronald Martinez | 10 | Low | cash intensive | Monitor |
+| 11 | Jennifer Cherry | 10 | Low | KYC incomplete (adverse-media hit was low-severity, below the medium threshold) | Monitor |
 
-Note: because live Gemini extraction is non-deterministic, Wei Chen occasionally also
-picks up an `ADVERSE_MEDIA` hit (escalating to Critical/85) depending on how the model
-reads the "same-day in-and-out pattern" note — this is expected LLM variance, not a bug,
-and is itself a good demo talking point (AI finding more than the rules alone).
+Note: live Gemini extraction is non-deterministic — exact scores for the 7 new archetype
+customers can shift slightly run-to-run (e.g. whether a borderline-severity alert is read
+as low vs medium), same as it always could for the original 5. The original 5 heroes'
+*rules-only* tiers (no LLM) are fully deterministic and unchanged from before the scale-up
+— see `test_deterministic_tiers` in `tests/test_scoring.py`.
 
 - `pytest -q` → **7 passed** (run against the live API key).
 - `streamlit run app.py` → boots healthy (HTTP 200), no errors.

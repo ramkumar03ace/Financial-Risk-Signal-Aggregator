@@ -21,3 +21,13 @@ sources. Low priority.
 
 Adverse media screen: Priya Shah — no adverse findings. Clean across sanctions,
 PEP and negative-news sources. No action required.
+
+[Regional Gazette] "Chris Curtis, who operates a market stall business, is under review after an anonymous tip alleged undeclared cash income linked to counterfeit goods." Internal note: cash deposit pattern flagged by branch staff.
+
+Sanctions screening: wire counterparty "Silver Crescent Trading" used by Joshua Diaz is flagged on a regional sanctions advisory tied to Myanmar military-linked entities. Joshua Diaz holds a senior ministry advisory role (PEP).
+
+Local news brief: "Jennifer Cherry, an online retailer, was named alongside several other small merchants in a consumer-complaint roundup about delayed refunds." Note: account onboarding documents are still incomplete.
+
+Watchlist run (nightly batch): Stephanie Washington — no matches across sanctions, PEP or adverse-media sources. No action required.
+
+Watchlist run (nightly batch): Joseph Allen — no matches across sanctions, PEP or adverse-media sources. No action required.
