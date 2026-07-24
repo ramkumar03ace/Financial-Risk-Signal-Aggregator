@@ -487,8 +487,9 @@ def _score_gauge(score: int, tier: str) -> go.Figure:
             mode="gauge+number",
             value=score,
             title={"text": tier},
+            domain={"x": [0.12, 0.88], "y": [0, 1]},
             gauge={
-                "axis": {"range": [0, 100]},
+                "axis": {"range": [0, 100], "tickfont": {"size": 11}},
                 "bar": {"color": TIER_COLORS.get(tier, "#666")},
                 "steps": [
                     {"range": [0, 25], "color": "#E4ECE4"},
@@ -500,7 +501,7 @@ def _score_gauge(score: int, tier: str) -> go.Figure:
         )
     )
     fig.update_layout(
-        height=220, margin=dict(l=10, r=10, t=40, b=10), font_family="IBM Plex Sans"
+        height=220, margin=dict(l=35, r=35, t=40, b=15), font_family="IBM Plex Sans"
     )
     return fig
 
