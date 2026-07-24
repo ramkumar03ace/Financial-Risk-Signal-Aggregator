@@ -33,8 +33,8 @@ This "explainable score + AI narrative" split is the single most impressive arch
 | Config / secrets | **python-dotenv** + `st.secrets` | — | `.env` locally, secrets on cloud | Never commit the key |
 | Data models | **pydantic** (or dataclasses) | 2.x | Validate LLM JSON output | Optional but shows rigor |
 | Testing | **pytest** | — | Unit-test the scoring rules | Optional, strong signal of quality |
-| Deploy | **Streamlit Community Cloud** | — | Free hosted URL if you want a hosted demo | Optional because the brief also accepts a screen recording |
-| Repo | **GitHub** | — | Helpful for versioning, sharing, and an optional submission link | Optional supporting asset per the brief |
+| Deploy | **Streamlit Community Cloud** | — | Free hosted URL | https://share.streamlit.io |
+| Repo | **GitHub** | — | Required by cloud deploy + submission asset | Public or free-private |
 
 ### `requirements.txt`
 ```
@@ -230,15 +230,13 @@ financial-risk-aggregator/
 - [ ] Graceful no-key fallback (templated rationale).
 - **Exit criteria:** `streamlit run app.py` → upload/sample → full dashboard with AI rationale works locally.
 
-### Day 3 — Polish, package, and optionally deploy
+### Day 3 — Polish, deploy, package
 - [ ] Optional: NL query tab; `tests/test_scoring.py`.
 - [ ] UI polish (color-coded tiers, KPI tiles, export).
-- [ ] Push to GitHub.
-- [ ] Optional: deploy to Streamlit Community Cloud → add `GEMINI_API_KEY` secret → get live URL.
+- [ ] Push to GitHub → deploy to Streamlit Community Cloud → add `GEMINI_API_KEY` secret → get live URL.
 - [ ] Write `README.md` (§11), capture screenshots to `docs/screenshots/`.
 - [ ] Record <3-min screen demo (§12 script).
 - [ ] Build 5-slide deck (§13).
-- [ ] Assemble final submission package: demo link or <=3 minute recording, 5-slide PPT/PDF, README/supporting assets.
 - [ ] Buffer for fixes.
 
 ---
@@ -284,7 +282,7 @@ Data-assumptions line to include: *"Synthetic dataset generated for demonstratio
 
 ---
 
-## 14. Optional Deployment (Streamlit Community Cloud)
+## 14. Deployment (Streamlit Community Cloud)
 1. Push repo to GitHub (ensure `.env` is gitignored; `requirements.txt` present).
 2. https://share.streamlit.io → **New app** → select repo / branch / `app.py`.
 3. **Advanced settings → Secrets:** add `GEMINI_API_KEY = "..."` (TOML). Code reads `st.secrets["GEMINI_API_KEY"]`, falling back to `os.getenv`.
@@ -292,22 +290,7 @@ Data-assumptions line to include: *"Synthetic dataset generated for demonstratio
 
 ---
 
-If deployment becomes a time sink, skip it and submit the accepted fallback from the brief: a screen recording of up to 3 minutes showing the workflow end-to-end.
-
----
-
-## 15. Final Submission Checklist
-
-- [ ] Working demo provided as either a hosted link or a screen recording (maximum 3 minutes).
-- [ ] Five-slide summary deck exported as PowerPoint or PDF, with the fixed slide structure from the brief.
-- [ ] README included with setup, approach, assumptions, and one example input/output.
-- [ ] Sample input dataset and output screenshots included.
-- [ ] Optional: GitHub repository or workspace link included.
-- [ ] Submission sent before midnight on day 3 to the specified email address.
-
----
-
-## 16. Rubric coverage check
+## 15. Rubric coverage check
 | Rubric focus | Weight | How this plan scores it |
 |---|---|---|
 | Data integration + AI reasoning quality; accuracy of risk signals | 40% | 3 heterogeneous sources joined; 11 explainable rules + LLM extraction of unstructured text; planted scenarios validate accuracy; evidence-grounded rationale |
@@ -317,7 +300,7 @@ If deployment becomes a time sink, skip it and submit the accepted fallback from
 
 ---
 
-## 17. Open items to confirm before building
+## 16. Open items to confirm before building
 - Get the free Gemini API key (aistudio.google.com/apikey).
 - Confirm GitHub account for deployment.
 - Decide whether to include the optional NL-query tab and pytest (both are marks-boosters; time-permitting).
