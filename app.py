@@ -18,7 +18,6 @@ import plotly.graph_objects as go
 import streamlit as st
 from dotenv import load_dotenv
 
-import config
 from src import llm
 from src.ingestion import build_entities, load_alerts, load_customers, load_transactions
 from src.scoring import build_risk_register
@@ -36,18 +35,118 @@ def md_safe(text: str) -> str:
 
 
 TIER_COLORS = {
-    "Critical": "#b91c1c",
-    "High": "#ea580c",
-    "Medium": "#ca8a04",
-    "Low": "#16a34a",
+    "Critical": "#9B1C1C",
+    "High": "#B45309",
+    "Medium": "#8A6D1B",
+    "Low": "#166534",
 }
 TIER_ORDER = ["Critical", "High", "Medium", "Low"]
+OK_COLOR = "#166534"
+WARN_COLOR = "#B45309"
 
 st.set_page_config(
     page_title="Financial Risk Signal Aggregator",
-    page_icon="🛡️",
+    page_icon=None,
     layout="wide",
 )
+
+
+def inject_theme() -> None:
+    """Custom type system + a small colored-chip indicator language, used in
+    place of emoji throughout (status, tiers, KPIs)."""
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+        :root {
+            --ink: #14171C;
+            --slate: #5B6472;
+            --accent: #1B2A4A;
+            --hairline: #DDD9CF;
+        }
+        html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
+        h1, h2, h3, .stMarkdown h3, .stMarkdown h4 {
+            font-family: 'Source Serif 4', Georgia, serif !important;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        [data-testid="stHeader"] { height: 2rem; background: transparent; }
+        .block-container { padding-top: 2rem; padding-bottom: 3rem; max-width: 1200px; }
+        [data-testid="stSidebar"] .block-container { padding-top: 1.6rem; }
+        [data-testid="stSidebar"] h1 {
+            font-size: 1.3rem;
+            border-bottom: 1px solid var(--hairline);
+            padding-bottom: 0.6rem;
+        }
+        .stButton > button, .stDownloadButton > button {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            border-radius: 4px;
+        }
+        [data-testid="stTabs"] button[role="tab"] {
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+            background-color: var(--accent) !important;
+        }
+        [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; }
+        [data-testid="stMetricLabel"] {
+            font-family: 'IBM Plex Sans', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: var(--slate);
+        }
+        [data-testid="stDataFrame"] thead tr th, [data-testid="stTable"] thead tr th {
+            font-family: 'IBM Plex Sans', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 0.04em;
+            color: var(--slate);
+        }
+        .rag-chip {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.76rem; letter-spacing: 0.03em;
+            padding: 0.5rem 0.7rem;
+            border: 1px solid var(--hairline); border-radius: 4px;
+            background: #FFFFFF;
+        }
+        .rag-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+        .kpi-row { display: flex; gap: 0; margin-bottom: 0.5rem; flex-wrap: wrap; }
+        .kpi-tile {
+            flex: 1; min-width: 110px;
+            padding: 0 1.4rem 0 0; margin-right: 1.4rem;
+            border-right: 1px solid var(--hairline);
+        }
+        .kpi-tile:last-child { border-right: none; margin-right: 0; }
+        .kpi-label {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-family: 'IBM Plex Sans', sans-serif; text-transform: uppercase;
+            font-size: 0.7rem; letter-spacing: 0.05em; color: var(--slate);
+            margin-bottom: 0.3rem;
+        }
+        .kpi-value {
+            font-family: 'IBM Plex Mono', monospace; font-size: 1.9rem;
+            font-weight: 600; color: var(--ink);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def chip(label: str, color: str) -> str:
+    return (
+        f'<span class="rag-chip"><span class="rag-dot" '
+        f'style="background:{color}"></span>{label}</span>'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -104,32 +203,44 @@ def register_to_df(register: List[EntityRisk]) -> pd.DataFrame:
 # Sidebar — inputs
 # ---------------------------------------------------------------------------
 def sidebar() -> None:
-    st.sidebar.title("🛡️ Risk Aggregator")
+    st.sidebar.title("Risk Aggregator")
     st.sidebar.caption("Structured + unstructured signals → prioritised risk view")
 
     if llm.is_available():
-        st.sidebar.success("Gemini connected — AI reasoning ON")
+        st.sidebar.markdown(
+            chip("Gemini connected — AI reasoning on", OK_COLOR),
+            unsafe_allow_html=True,
+        )
     else:
-        st.sidebar.warning(
-            "No Gemini key — running in rules + heuristic fallback mode. "
-            "Set GEMINI_API_KEY to enable full AI narrative."
+        st.sidebar.markdown(
+            chip("No Gemini key — rules + fallback mode", WARN_COLOR),
+            unsafe_allow_html=True,
         )
 
     st.sidebar.subheader("1 · Load data")
-    if st.sidebar.button("📂 Load sample dataset", use_container_width=True):
+    if st.sidebar.button("Load sample dataset", use_container_width=True):
         _load_sample_into_state()
+
+    if st.session_state.get("sample_loaded"):
+        n_cust = len(st.session_state.get("customers", []))
+        n_txn = len(st.session_state.get("txns_df", []))
+        st.sidebar.markdown(
+            chip(f"Sample loaded — {n_cust} customers, {n_txn} transactions", OK_COLOR),
+            unsafe_allow_html=True,
+        )
 
     txn_file = st.sidebar.file_uploader("Transactions (CSV)", type=["csv"])
     cust_file = st.sidebar.file_uploader("Customer records (JSON)", type=["json"])
+    if "alert_text" not in st.session_state:
+        st.session_state["alert_text"] = ""
     alert_text = st.sidebar.text_area(
         "External alerts / adverse media (paste text)",
-        value=st.session_state.get("alert_text", ""),
         height=160,
         key="alert_text",
     )
 
     st.sidebar.subheader("2 · Analyse")
-    if st.sidebar.button("▶ Run risk analysis", type="primary", use_container_width=True):
+    if st.sidebar.button("Run risk analysis", type="primary", use_container_width=True):
         _run_from_inputs(txn_file, cust_file, alert_text)
 
 
@@ -178,12 +289,17 @@ def overview_tab(result: Dict[str, Any]) -> None:
     register: List[EntityRisk] = result["register"]
     counts = {t: sum(1 for e in register if e.tier == t) for t in TIER_ORDER}
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Customers", len(register))
-    c2.metric("🔴 Critical", counts["Critical"])
-    c3.metric("🟠 High", counts["High"])
-    c4.metric("🟡 Medium", counts["Medium"])
-    c5.metric("🟢 Low", counts["Low"])
+    tiles = [("Customers", len(register), None)] + [
+        (t, counts[t], TIER_COLORS[t]) for t in TIER_ORDER
+    ]
+    tiles_html = ""
+    for label, value, color in tiles:
+        dot = f'<span class="rag-dot" style="background:{color}"></span>' if color else ""
+        tiles_html += (
+            f'<div class="kpi-tile"><div class="kpi-label">{dot}{label}</div>'
+            f'<div class="kpi-value">{value}</div></div>'
+        )
+    st.markdown(f'<div class="kpi-row">{tiles_html}</div>', unsafe_allow_html=True)
 
     st.subheader("Executive summary")
     tag = "AI-generated" if result["ai_used"] else "auto-generated (no API key)"
@@ -199,7 +315,7 @@ def overview_tab(result: Dict[str, Any]) -> None:
             dist, x="Tier", y="Count", color="Tier",
             color_discrete_map=TIER_COLORS, title="Risk tier distribution",
         )
-        fig.update_layout(showlegend=False)
+        fig.update_layout(showlegend=False, font_family="IBM Plex Sans")
         st.plotly_chart(fig, use_container_width=True)
     with right:
         scores = pd.DataFrame(
@@ -209,7 +325,9 @@ def overview_tab(result: Dict[str, Any]) -> None:
             scores, x="Score", y="Customer", color="Tier", orientation="h",
             color_discrete_map=TIER_COLORS, title="Risk score by customer",
         )
-        fig2.update_layout(yaxis={"categoryorder": "total ascending"})
+        fig2.update_layout(
+            yaxis={"categoryorder": "total ascending"}, font_family="IBM Plex Sans"
+        )
         st.plotly_chart(fig2, use_container_width=True)
 
 
@@ -246,10 +364,10 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
     with head:
         st.markdown(f"### {er.name}")
         st.markdown(
-            f"**Tier:** :{'red' if er.tier in ('Critical','High') else 'orange'}"
-            f"[{er.tier}] &nbsp;|&nbsp; **Score:** {er.score}/100 "
-            f"&nbsp;|&nbsp; **Recommended action:** {er.recommended_action} "
-            f"&nbsp;|&nbsp; **Confidence:** {er.confidence}"
+            chip(f"{er.tier} — score {er.score}/100", TIER_COLORS[er.tier])
+            + f"&nbsp;&nbsp; **Recommended action:** {er.recommended_action} "
+            f"&nbsp;|&nbsp; **Confidence:** {er.confidence}",
+            unsafe_allow_html=True,
         )
         st.markdown("**Profile**")
         st.json(profile, expanded=False)
@@ -317,7 +435,7 @@ def export_tab(result: Dict[str, Any]) -> None:
     st.subheader("Export results")
     df = register_to_df(register)
     st.download_button(
-        "⬇ Download register (CSV)",
+        "Download register (CSV)",
         df.to_csv(index=False).encode("utf-8"),
         file_name="risk_register.csv",
         mime="text/csv",
@@ -337,7 +455,7 @@ def export_tab(result: Dict[str, Any]) -> None:
         for e in register
     ]
     st.download_button(
-        "⬇ Download full findings (JSON)",
+        "Download full findings (JSON)",
         json.dumps(detailed, indent=2).encode("utf-8"),
         file_name="risk_findings.json",
         mime="application/json",
@@ -355,15 +473,17 @@ def _score_gauge(score: int, tier: str) -> go.Figure:
                 "axis": {"range": [0, 100]},
                 "bar": {"color": TIER_COLORS.get(tier, "#666")},
                 "steps": [
-                    {"range": [0, 25], "color": "#dcfce7"},
-                    {"range": [25, 50], "color": "#fef9c3"},
-                    {"range": [50, 75], "color": "#ffedd5"},
-                    {"range": [75, 100], "color": "#fee2e2"},
+                    {"range": [0, 25], "color": "#E4ECE4"},
+                    {"range": [25, 50], "color": "#EFE8D6"},
+                    {"range": [50, 75], "color": "#F1E2CE"},
+                    {"range": [75, 100], "color": "#F0D9D6"},
                 ],
             },
         )
     )
-    fig.update_layout(height=220, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(
+        height=220, margin=dict(l=10, r=10, t=40, b=10), font_family="IBM Plex Sans"
+    )
     return fig
 
 
@@ -371,6 +491,7 @@ def _score_gauge(score: int, tier: str) -> go.Figure:
 # Entry point
 # ---------------------------------------------------------------------------
 def main() -> None:
+    inject_theme()
     sidebar()
     st.title("Financial Risk Signal Aggregator")
     st.caption(
@@ -380,7 +501,7 @@ def main() -> None:
 
     if "result" not in st.session_state:
         st.info(
-            "👈 Click **Load sample dataset**, then **Run risk analysis** to see the "
+            "Click **Load sample dataset**, then **Run risk analysis** to see the "
             "prototype end-to-end. You can also upload your own CSV/JSON and paste alerts."
         )
         with st.expander("How scoring works"):
@@ -397,7 +518,7 @@ def main() -> None:
 
     result = st.session_state["result"]
     tabs = st.tabs(
-        ["📊 Overview", "📋 Risk Register", "🔎 Drill-down", "💬 Ask", "⬇ Export"]
+        ["Overview", "Risk Register", "Drill-down", "Ask", "Export"]
     )
     with tabs[0]:
         overview_tab(result)
