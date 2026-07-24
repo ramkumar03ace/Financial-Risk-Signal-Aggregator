@@ -110,8 +110,21 @@ Run the rules-only CLI: `python -m src.scoring`
 The clean control customer (*Priya Shah*) scores **0 / Low** with no signals,
 demonstrating the model does not over-flag.
 
-## Deployment (Streamlit Community Cloud)
+## Deployment
 
+**Live on Railway:** https://financial-risk-signal-aggregator-production.up.railway.app
+
+Deployed with the Railway CLI (`railway up`) from this repo. A [`Procfile`](Procfile)
+gives Streamlit an explicit start command bound to Railway's injected `$PORT`:
+```
+web: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+```
+`GEMINI_API_KEY` is set as a Railway service variable (never committed). To redeploy:
+```bash
+railway up --detach -m "<summary>"
+```
+
+**Alternative — Streamlit Community Cloud:**
 1. Push this repo to GitHub (`.env` is gitignored).
 2. On https://share.streamlit.io → **New app** → select repo / `app.py`.
 3. **Settings → Secrets:** add `GEMINI_API_KEY = "..."`.
@@ -138,6 +151,7 @@ docs/             5-slide deck + screenshots (docs/Financial_Risk_Signal_Aggrega
 
 ## Submission assets
 
+- **Live demo:** https://financial-risk-signal-aggregator-production.up.railway.app
 - **5-slide summary deck:** [`docs/Financial_Risk_Signal_Aggregator_Deck.pptx`](docs/Financial_Risk_Signal_Aggregator_Deck.pptx)
 - **Screenshots:** [`docs/screenshots/`](docs/screenshots/) — captured from the live running app
 - **Repo:** https://github.com/ramkumar03ace/Financial-Risk-Signal-Aggregator
