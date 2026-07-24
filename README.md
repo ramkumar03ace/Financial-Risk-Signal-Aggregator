@@ -50,7 +50,7 @@ so it always works.
 |---|---|
 | Language | Python 3.11+ |
 | Data | pandas |
-| LLM | Google Gemini (`gemini-2.0-flash`) via the `google-genai` SDK |
+| LLM | Google Gemini (`gemini-flash-latest`, fallback `gemini-flash-lite-latest`) via the `google-genai` SDK |
 | UI | Streamlit |
 | Charts | Plotly |
 | Validation | pydantic |
@@ -133,4 +133,11 @@ src/ingestion.py  load + join sources     src/rules.py  deterministic signal rul
 src/scoring.py    aggregate -> rank       src/llm.py    Gemini: extract/rationale/summary/Q&A
 src/schemas.py    pydantic models         prompts/      LLM prompt templates
 data/             sample CSV/JSON/text    tests/        pytest scenario tests
+docs/             5-slide deck + screenshots (docs/Financial_Risk_Signal_Aggregator_Deck.pptx)
 ```
+
+## Submission assets
+
+- **5-slide summary deck:** [`docs/Financial_Risk_Signal_Aggregator_Deck.pptx`](docs/Financial_Risk_Signal_Aggregator_Deck.pptx)
+- **Screenshots:** [`docs/screenshots/`](docs/screenshots/) — captured from the live running app
+- **Repo:** https://github.com/ramkumar03ace/Financial-Risk-Signal-Aggregator

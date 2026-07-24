@@ -27,6 +27,14 @@ from src.schemas import EntityRisk
 load_dotenv()
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+
+def md_safe(text: str) -> str:
+    """Escape lone $ so Streamlit's markdown renderer doesn't treat dollar
+    amounts (e.g. "$250,000") as LaTeX math delimiters."""
+    return (text or "").replace("$", "\\$")
+
+
 TIER_COLORS = {
     "Critical": "#b91c1c",
     "High": "#ea580c",
@@ -179,7 +187,7 @@ def overview_tab(result: Dict[str, Any]) -> None:
 
     st.subheader("Executive summary")
     tag = "AI-generated" if result["ai_used"] else "auto-generated (no API key)"
-    st.info(result["summary"])
+    st.info(md_safe(result["summary"]))
     st.caption(f"Summary source: {tag}")
 
     left, right = st.columns(2)
@@ -249,14 +257,14 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
         st.plotly_chart(_score_gauge(er.score, er.tier), use_container_width=True)
 
     st.markdown("#### AI rationale")
-    st.write(er.rationale or "—")
+    st.write(md_safe(er.rationale) or "—")
 
     st.markdown("#### Risk signals & evidence")
     if er.signals:
         st.table(
             pd.DataFrame(
                 [
-                    {"Signal": s.label, "Points": s.weight, "Evidence": s.evidence}
+                    {"Signal": s.label, "Points": s.weight, "Evidence": md_safe(s.evidence)}
                     for s in er.signals
                 ]
             )
@@ -269,7 +277,11 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
         st.table(
             pd.DataFrame(
                 [
-                    {"Type": h.alert_type, "Severity": h.severity, "Summary": h.summary}
+                    {
+                        "Type": h.alert_type,
+                        "Severity": h.severity,
+                        "Summary": md_safe(h.summary),
+                    }
                     for h in er.alert_hits
                 ]
             )
@@ -297,7 +309,7 @@ def ask_tab(result: Dict[str, Any]) -> None:
     if q:
         with st.spinner("Thinking…"):
             answer = llm.nl_query(q, result["register"])
-        st.write(answer)
+        st.write(md_safe(answer))
 
 
 def export_tab(result: Dict[str, Any]) -> None:
