@@ -1,0 +1,57 @@
+[
+  {
+    "customer_id": "cust_001",
+    "name": "Ravi Menon",
+    "kyc_status": "verified",
+    "base_risk_rating": "medium",
+    "account_open_date": "2021-03-14",
+    "country": "US",
+    "is_pep": false,
+    "expected_monthly_volume": 15000,
+    "occupation": "Restaurant Owner"
+  },
+  {
+    "customer_id": "cust_002",
+    "name": "John Doe",
+    "kyc_status": "verified",
+    "base_risk_rating": "high",
+    "account_open_date": "2019-08-02",
+    "country": "US",
+    "is_pep": true,
+    "expected_monthly_volume": 12000,
+    "occupation": "Regional Government Official"
+  },
+  {
+    "customer_id": "cust_003",
+    "name": "Wei Chen",
+    "kyc_status": "verified",
+    "base_risk_rating": "medium",
+    "account_open_date": "2018-05-20",
+    "country": "SG",
+    "is_pep": false,
+    "expected_monthly_volume": 300000,
+    "occupation": "Import/Export Business"
+  },
+  {
+    "customer_id": "cust_004",
+    "name": "Priya Shah",
+    "kyc_status": "verified",
+    "base_risk_rating": "low",
+    "account_open_date": "2020-11-11",
+    "country": "US",
+    "is_pep": false,
+    "expected_monthly_volume": 6000,
+    "occupation": "Software Engineer"
+  },
+  {
+    "customer_id": "cust_005",
+    "name": "Sara Lopez",
+    "kyc_status": "pending",
+    "base_risk_rating": "medium",
+    "account_open_date": "2026-07-01",
+    "country": "US",
+    "is_pep": false,
+    "expected_monthly_volume": 8000,
+    "occupation": "Freelance Consultant"
+  }
+]

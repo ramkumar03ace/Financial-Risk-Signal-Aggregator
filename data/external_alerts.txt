@@ -1,0 +1,23 @@
+COMPLIANCE INBOX — UNSTRUCTURED EXTERNAL ALERTS & ANALYST NOTES
+(Free-text, mixed sources. The AI layer parses this into structured hits per customer.)
+
+[Reuters, 12 Jun 2026] "Acme Trading, a firm linked to local businessman Ravi Menon,
+has been named in an ongoing bribery and kickback probe by regional prosecutors."
+Internal note (K. Rao): Menon operates a cash-heavy restaurant; recent branch deposits
+look unusual. Flag for review.
+
+--- forwarded message ---
+Sanctions screening hit: The wire counterparty "Pardis Holdings" used by customer
+John Doe appears on an OFAC advisory list associated with sanctioned Iranian entities.
+Note: John Doe is a listed politically exposed person (PEP). Treat as high severity.
+
+Watchlist run (nightly batch): Wei Chen — no direct sanctions match. Counterparties
+"Global Traders Ltd" and "Sunrise Import Co" are not on any list, but the same-day
+in-and-out pattern was noted by the transaction monitoring system.
+
+New-account review: Sara Lopez opened an account on 01 Jul. Inbound transfers from a
+crypto exchange are within policy for now; no derogatory information found in open
+sources. Low priority.
+
+Adverse media screen: Priya Shah — no adverse findings. Clean across sanctions,
+PEP and negative-news sources. No action required.

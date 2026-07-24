@@ -1,0 +1,25 @@
+txn_id,timestamp,customer_id,account_id,amount,currency,txn_type,counterparty,counterparty_country,channel
+t001,2026-07-10 09:15,cust_001,acct_1001,9500,USD,cash_deposit,Self,US,branch
+t002,2026-07-10 14:20,cust_001,acct_1001,9300,USD,cash_deposit,Self,US,branch
+t003,2026-07-11 10:05,cust_001,acct_1001,9700,USD,cash_deposit,Self,US,branch
+t004,2026-07-11 15:40,cust_001,acct_1001,9500,USD,cash_deposit,Self,US,branch
+t005,2026-07-11 16:55,cust_001,acct_1001,9600,USD,cash_deposit,Self,US,branch
+t006,2026-07-12 09:30,cust_001,acct_1001,9400,USD,cash_deposit,Self,US,branch
+t007,2026-07-12 12:10,cust_001,acct_1001,9900,USD,cash_deposit,Self,US,branch
+t008,2026-07-12 17:00,cust_001,acct_1001,9500,USD,cash_deposit,Self,US,branch
+t009,2026-07-13 11:00,cust_001,acct_1001,1200,USD,payment,Metro Landlord LLC,US,online
+t010,2026-06-30 08:00,cust_002,acct_1002,8000,USD,salary,State Payroll Office,US,online
+t011,2026-07-05 19:30,cust_002,acct_1002,2500,USD,payment,City Utilities,US,online
+t012,2026-07-08 14:00,cust_002,acct_1002,120000,USD,wire_out,Pardis Holdings,IR,online
+t013,2024-11-01 10:00,cust_003,acct_1003,500,USD,payment,Office Supplies Co,US,online
+t014,2026-07-15 09:00,cust_003,acct_1003,250000,USD,wire_in,Global Traders Ltd,AE,online
+t015,2026-07-15 15:30,cust_003,acct_1003,248000,USD,wire_out,Sunrise Import Co,SG,online
+t016,2026-06-28 08:00,cust_004,acct_1004,5200,USD,salary,Acme Corp Payroll,US,online
+t017,2026-07-01 09:10,cust_004,acct_1004,1400,USD,payment,City Rentals,US,online
+t018,2026-07-03 18:45,cust_004,acct_1004,320,USD,payment,Regional Electric Board,US,online
+t019,2026-07-09 13:20,cust_004,acct_1004,210,USD,payment,Grocery Mart,US,mobile
+t020,2026-07-12 20:05,cust_004,acct_1004,150,USD,payment,Mobile Telecom,US,mobile
+t021,2026-07-02 11:00,cust_005,acct_1005,21000,USD,wire_in,Crypto Exchange X,US,online
+t022,2026-07-03 12:30,cust_005,acct_1005,18000,USD,wire_in,Crypto Exchange X,US,online
+t023,2026-07-05 16:10,cust_005,acct_1005,22000,USD,wire_in,P2P Transfer Network,US,online
+t024,2026-07-06 09:45,cust_005,acct_1005,25000,USD,wire_in,P2P Transfer Network,US,online
