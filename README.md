@@ -147,6 +147,13 @@ railway up --detach -m "<summary>"
 - Rules and thresholds are illustrative; production would tune them on labelled data.
 - Entity matching is name-based; production would use resolved customer IDs / fuzzy
   matching and a real sanctions-list API (OFAC, UN, EU).
+- CSV/JSON column names must match the canonical schema exactly (see *Data
+  assumptions* above for the 5 required fields). A safer next step than silent
+  auto-inference: a **human-confirmed column-mapping step** — if an uploaded file's
+  columns don't match, show dropdowns ("which of your columns is the amount? the
+  timestamp?") for a person to confirm once before scoring runs. Full autonomous
+  schema-guessing was deliberately avoided — a wrong mapping is more dangerous in a
+  compliance context than an upfront "column not found" error.
 - Next: graph-based network analysis across counterparties, an analyst feedback loop
   to auto-tune weights, streaming ingestion, and a case-management workflow.
 
