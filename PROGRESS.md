@@ -10,6 +10,47 @@ Gemini API key, deployed to Railway with a custom-designed UI, pushed to GitHub,
 OR a video — the hosted link is already done, so the video is optional polish, not a
 blocker).
 
+**Network graph + deck refresh round (2026-07-25, later still):** user asked "is there
+more to improve, and what about a counterparty network graph" (a previously-documented
+"next step" that was never built). Delivered:
+
+1. **Counterparty network graph** (`src/network.py`, new `Network` tab in `app.py`) —
+   builds a graph of customer↔counterparty links, keeping only counterparties used by
+   2+ *distinct* customers (a counterparty used by one customer carries no cross-
+   customer signal; deliberately excludes routine bill payments like rent/utilities,
+   which reuse a small shared payee pool across the 55 clean customers purely for
+   dataset realism and would otherwise flood the graph with meaningless links —
+   restricted to wire transactions only). Rendered with networkx (`spring_layout`) +
+   Plotly scatter traces, styled consistent with the rest of the app (tier-colored
+   customer nodes, diamond counterparty nodes).
+2. **Planted a real link for the demo to show**: `scripts/generate_dataset.py`'s
+   `gen_layering_case` (Jordan Johnson) now routes its outbound wire through "Silver
+   Crescent Trading" — the same sanctioned shell company already used by
+   `gen_sanctions_pep_case` (Joshua Diaz). Regenerated dataset: still 67 customers /
+   1,971 transactions (only a counterparty name changed); all 7 pytest tests
+   unaffected (they only assert on the 5 original hero customers). Side effect: Jordan
+   Johnson's score rose 65→90 (High→Critical) since "Silver Crescent Trading" is also
+   flagged as a high-risk jurisdiction (MM) — a realistic, not contrived, change.
+3. **Deck refresh** across slides 2–5: slide 3's screenshot swapped from the drilldown
+   to the network graph (now the most differentiated visual), code snippet swapped to
+   `src/network.py`'s shared-counterparty filter; slide 4's weakest card ("free-tier
+   model churn") replaced with the real widget/session-state bug story (see below);
+   slide 5 moved "network analysis" from Next Steps to What Was Delivered, since it's
+   no longer a future item.
+
+**Also fixed while verifying the Gemini-vs-NVIDIA comparison feature (added by the user
+in a prior round, outside this session): a real bug** — the comparison silently compared
+Gemini to itself. `use_provider()` tried to overwrite `st.session_state["llm_provider"]`,
+the exact key the sidebar's `st.selectbox(key="llm_provider")` widget owns; Streamlit
+silently rejects that once the widget is instantiated in the current run. A standalone
+Python script test misleadingly "confirmed" the feature worked, because outside a real
+Streamlit session there's no widget to conflict with. Fixed by routing the override
+through a separate key (`_llm_provider_override`) in `src/llm.py`. Re-verified inside
+the actual browser session (not a script) both locally and on the live Railway
+deployment: Gemini and NVIDIA now show genuinely different models and results.
+**Lesson for future sessions: never trust a standalone script test of Streamlit
+session_state behavior — always verify by driving the real browser-rendered app.**
+
 **"Make it more impressive" round (2026-07-25):** user felt the app was too basic vs.
 other candidates' submissions and asked for 3 things: (1) multi-LLM support, not just
 Gemini, (2) the "Ask" tab turned into a floating chat-bubble instead of a plain tab,

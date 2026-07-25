@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from src import llm
 from src.ingestion import build_entities, load_alerts, load_customers, load_transactions
+from src.network import build_counterparty_graph, shared_counterparty_summary
 from src.scoring import build_risk_register
 from src.schemas import EntityRisk
 
@@ -692,6 +693,110 @@ def _comparison_delta_rows(providers: Dict[str, Any]) -> List[Dict[str, Any]]:
     return rows
 
 
+def network_tab(result: Dict[str, Any]) -> None:
+    st.subheader("Counterparty network")
+    st.caption(
+        "Per-customer scoring can't see this: two independently-flagged customers "
+        "routing money through the same intermediary. Wire-transaction counterparties "
+        "used by two or more different customers are shown as links between them — "
+        "counterparties used by only one customer carry no network signal and are "
+        "left out."
+    )
+
+    entities = result["entities"]
+    register: List[EntityRisk] = result["register"]
+    graph = build_counterparty_graph(entities, register)
+
+    if graph.number_of_edges() == 0:
+        st.info(
+            "No shared wire counterparties found in this dataset — every flagged "
+            "wire recipient was used by exactly one customer."
+        )
+        return
+
+    st.plotly_chart(_network_graph_figure(graph), use_container_width=True)
+
+    st.markdown("#### Shared counterparties")
+    for row in shared_counterparty_summary(graph):
+        names = ", ".join(
+            f"{l['name']} ({l['tier']})" for l in row["linked_customers"]
+        )
+        st.markdown(
+            f"**{row['counterparty']}** ({row['country']}) — linked to "
+            f"{row['customer_count']} customers: {names}"
+        )
+
+
+def _network_graph_figure(g) -> go.Figure:
+    import networkx as nx
+
+    pos = nx.spring_layout(g, seed=42, k=0.9)
+
+    edge_x, edge_y = [], []
+    for u, v in g.edges():
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y, mode="lines",
+        line=dict(width=1.5, color="#B8B2A3"),
+        hoverinfo="none", showlegend=False,
+    )
+
+    cust_nodes = [n for n, d in g.nodes(data=True) if d["kind"] == "customer"]
+    cp_nodes = [n for n, d in g.nodes(data=True) if d["kind"] == "counterparty"]
+
+    cust_trace = go.Scatter(
+        x=[pos[n][0] for n in cust_nodes],
+        y=[pos[n][1] for n in cust_nodes],
+        mode="markers+text",
+        text=[g.nodes[n]["label"] for n in cust_nodes],
+        textposition="top center",
+        textfont=dict(family="IBM Plex Sans", size=11),
+        marker=dict(
+            size=[24 + g.nodes[n]["score"] * 0.25 for n in cust_nodes],
+            color=[TIER_COLORS.get(g.nodes[n]["tier"], "#666") for n in cust_nodes],
+            line=dict(width=2, color="white"),
+        ),
+        hovertext=[
+            f"{g.nodes[n]['label']} — {g.nodes[n]['tier']} ({g.nodes[n]['score']}/100)"
+            for n in cust_nodes
+        ],
+        hoverinfo="text", showlegend=False,
+    )
+    cp_trace = go.Scatter(
+        x=[pos[n][0] for n in cp_nodes],
+        y=[pos[n][1] for n in cp_nodes],
+        mode="markers+text",
+        text=[g.nodes[n]["label"] for n in cp_nodes],
+        textposition="bottom center",
+        textfont=dict(family="IBM Plex Sans", size=10, color="#5B6472"),
+        marker=dict(
+            symbol="diamond", size=16, color="#EDEBE6",
+            line=dict(width=2, color="#5B6472"),
+        ),
+        hovertext=[
+            f"{g.nodes[n]['label']} ({g.nodes[n]['country']}) — "
+            f"{g.degree(n)} linked customers"
+            for n in cp_nodes
+        ],
+        hoverinfo="text", showlegend=False,
+    )
+
+    fig = go.Figure(data=[edge_trace, cust_trace, cp_trace])
+    fig.update_layout(
+        font_family="IBM Plex Sans",
+        height=420,
+        margin=dict(l=10, r=10, t=10, b=10),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        plot_bgcolor="rgba(0,0,0,0)",
+        paper_bgcolor="rgba(0,0,0,0)",
+    )
+    return fig
+
+
 def floating_chat(result: Dict[str, Any]) -> None:
     """A chat bubble pinned to the bottom-right corner of the viewport (via a
     keyed container + CSS), open across every tab — not a separate page."""
@@ -850,7 +955,9 @@ def main() -> None:
             key_prefix="model_compare_inline",
         )
 
-    tabs = st.tabs(["Overview", "Risk Register", "Drill-down", "Model Compare", "Export"])
+    tabs = st.tabs(
+        ["Overview", "Risk Register", "Drill-down", "Network", "Model Compare", "Export"]
+    )
     with tabs[0]:
         overview_tab(result)
     with tabs[1]:
@@ -858,11 +965,13 @@ def main() -> None:
     with tabs[2]:
         drilldown_tab(result)
     with tabs[3]:
+        network_tab(result)
+    with tabs[4]:
         model_compare_tab(
             st.session_state.get("model_comparison", {}),
             key_prefix="model_compare_tab",
         )
-    with tabs[4]:
+    with tabs[5]:
         export_tab(result)
 
     floating_chat(result)

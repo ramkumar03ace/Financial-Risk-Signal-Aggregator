@@ -1476,7 +1476,7 @@ c_cust_036_shop_3_0,2026-05-19 21:00,cust_036,acct_1036,29.59,USD,payment,Supers
 g_cust_008_in,2026-05-20 11:00,cust_008,acct_1008,180000,USD,wire_in,Horizon Commodities FZE,AE,online
 c_cust_048_shop_3_2,2026-05-20 12:00,cust_048,acct_1048,178.05,USD,payment,Superstore Retail,SE,online
 c_cust_017_shop_3_1,2026-05-20 16:00,cust_017,acct_1017,15.03,USD,payment,Corner Pharmacy,BR,mobile
-g_cust_008_out,2026-05-20 17:00,cust_008,acct_1008,176000,USD,wire_out,Blue Ocean Freight Co,PH,online
+g_cust_008_out,2026-05-20 17:00,cust_008,acct_1008,176000,USD,wire_out,Silver Crescent Trading,MM,online
 c_cust_034_shop_3_0,2026-05-20 17:00,cust_034,acct_1034,179.13,USD,payment,Superstore Retail,DE,mobile
 c_cust_037_shop_3_0,2026-05-20 17:00,cust_037,acct_1037,123.11,USD,payment,Grocery Mart,AU,online
 c_cust_057_shop_3_0,2026-05-20 17:00,cust_057,acct_1057,129.26,USD,payment,Online Marketplace,IN,mobile

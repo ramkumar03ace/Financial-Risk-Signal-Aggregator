@@ -208,7 +208,14 @@ def gen_sanctions_pep_case(cid: str, acct: str, name: str) -> tuple[dict, list, 
 
 
 def gen_layering_case(cid: str, acct: str, name: str) -> tuple[dict, list, str | None]:
-    """Dormant reactivation + same-day pass-through, different country."""
+    """Dormant reactivation + same-day pass-through, different country.
+
+    Deliberately routes the outbound leg through "Silver Crescent Trading" —
+    the same sanctioned shell company used by the sanctions/PEP archetype
+    (gen_sanctions_pep_case) — so the counterparty network graph has a real,
+    non-trivial cross-customer link to reveal: two independently-flagged
+    customers funnelling money through the same intermediary.
+    """
     profile = {
         "customer_id": cid, "name": name, "kyc_status": "verified",
         "base_risk_rating": "medium", "account_open_date": "2016-01-20", "country": "AE",
@@ -219,7 +226,7 @@ def gen_layering_case(cid: str, acct: str, name: str) -> tuple[dict, list, str |
     txns = [
         [f"g_{cid}_old", fmt(dormant_start), cid, acct, 800, "USD", "payment", "Office Lease Co", "AE", "online"],
         [f"g_{cid}_in", fmt(reactivate), cid, acct, 180000, "USD", "wire_in", "Horizon Commodities FZE", "AE", "online"],
-        [f"g_{cid}_out", fmt(reactivate + timedelta(hours=6)), cid, acct, 176000, "USD", "wire_out", "Blue Ocean Freight Co", "PH", "online"],
+        [f"g_{cid}_out", fmt(reactivate + timedelta(hours=6)), cid, acct, 176000, "USD", "wire_out", "Silver Crescent Trading", "MM", "online"],
     ]
     return profile, txns, None
 

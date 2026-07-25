@@ -4,5 +4,6 @@ google-genai>=1.0
 openai>=1.0
 python-dotenv>=1.0
 plotly>=5.18
+networkx>=3.0
 pydantic>=2.0
 pytest>=8.0

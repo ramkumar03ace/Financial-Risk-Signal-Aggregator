@@ -26,9 +26,12 @@ today review these signals manually.
 4. **Explains** every flag with an AI-written rationale + recommended action
    (Monitor → EDD → Escalate to MLRO → File SAR) grounded in the evidence, plus a
    waterfall chart showing exactly how each signal's points built the final score.
-5. **Presents** it in a Streamlit dashboard: executive summary, ranked register,
-   per-entity drill-down, a floating multi-turn chat for natural-language questions,
-   and CSV/JSON export.
+5. **Correlates structurally** — a counterparty network graph links customers who
+   share a wire counterparty (e.g. the same shell company), a cross-customer
+   pattern per-customer scoring alone can never surface.
+6. **Presents** it in a Streamlit dashboard: executive summary, ranked register,
+   per-entity drill-down, counterparty network, a Gemini-vs-NVIDIA model
+   comparison view, a floating multi-turn chat, and CSV/JSON export.
 
 ## Architecture
 
@@ -39,8 +42,8 @@ Inputs (CSV transactions / JSON customers / pasted alert text)
   -> [2] Rule engine (deterministic): fire weighted signals with evidence
   -> [3] Scoring: aggregate -> 0-100 score -> tier -> priority rank
   -> [5] AI reasoning: per-entity rationale + action; portfolio exec summary
-  -> [6] Streamlit dashboard: register, drill-down, score waterfall, floating
-         chat, export
+  -> [6] Streamlit dashboard: register, drill-down, score waterfall,
+         counterparty network graph, model comparison, floating chat, export
 ```
 
 Layers 1–3 run with **zero LLM calls**; layers 4–5 enrich the result. If no API
@@ -55,7 +58,8 @@ so it always works.
 | Data | pandas |
 | LLM | **Multi-provider, both verified live** (sidebar-selectable) — Google Gemini (default) and NVIDIA NIM (or any OpenAI-compatible API: OpenAI, Groq, …) via the `openai` SDK, with a built-in **Gemini vs NVIDIA comparison** view. See [`src/llm.py`](src/llm.py) — `get_provider()` / `_generate()` are the only provider-aware functions; everything else is provider-agnostic. |
 | UI | Streamlit (`st.popover` + `st.chat_message`/`st.chat_input` for the floating chat) |
-| Charts | Plotly (bar charts, score gauge, score-breakdown waterfall) |
+| Charts | Plotly (bar charts, score gauge, score-breakdown waterfall, counterparty network graph) |
+| Graph | networkx — builds the customer↔counterparty graph; see [`src/network.py`](src/network.py) |
 | Validation | pydantic |
 | Config/secrets | python-dotenv + `st.secrets` |
 | Tests | pytest |
@@ -90,7 +94,10 @@ endpoint model (e.g. `openai/gpt-oss-20b`), click **Generate API Key**, copy the
   (structuring, sanctions/PEP, layering, velocity spike, cash-intensive, round-number
   wire, KYC+adverse-media); the remaining 55 are genuinely clean, normal-activity
   customers — proving the system flags the few that matter (11/67) rather than
-  everyone.
+  everyone. Two of the flagged customers (Joshua Diaz, Jordan Johnson) are
+  deliberately linked through a shared wire counterparty ("Silver Crescent
+  Trading") so the counterparty network graph has a real, non-trivial pattern
+  to reveal, not an empty chart.
 - All amounts are USD; one row per transaction.
 - Thresholds (e.g. `$10k` CTR line, `$50k` wire) are **illustrative and fully
   configurable** in [`config.py`](config.py).
@@ -178,8 +185,9 @@ railway up --detach -m "<summary>"
   timestamp?") for a person to confirm once before scoring runs. Full autonomous
   schema-guessing was deliberately avoided — a wrong mapping is more dangerous in a
   compliance context than an upfront "column not found" error.
-- Next: graph-based network analysis across counterparties, an analyst feedback loop
-  to auto-tune weights, streaming ingestion, and a case-management workflow.
+- Next: real sanctions-list APIs (OFAC/UN/EU) in place of the illustrative
+  watchlist, an analyst feedback loop to auto-tune rule weights, streaming
+  ingestion, and a case-management workflow.
 
 ## Project layout
 
@@ -187,8 +195,9 @@ railway up --detach -m "<summary>"
 app.py            Streamlit UI            config.py     rule weights & thresholds
 src/ingestion.py  load + join sources     src/rules.py  deterministic signal rules
 src/scoring.py    aggregate -> rank       src/llm.py    multi-provider LLM: extract/rationale/summary/chat
-src/schemas.py    pydantic models         prompts/      LLM prompt templates
-data/             sample CSV/JSON/text    tests/        pytest scenario tests
+src/network.py    counterparty graph      src/schemas.py pydantic models
+prompts/          LLM prompt templates    data/          sample CSV/JSON/text
+tests/            pytest scenario tests
 scripts/          generate_dataset.py (regenerate the sample data, seeded/reproducible)
 docs/             5-slide deck + screenshots (docs/Financial_Risk_Signal_Aggregator_Deck.pptx)
 SUMMARY.md        Problem / architecture / implementation / challenges write-up
