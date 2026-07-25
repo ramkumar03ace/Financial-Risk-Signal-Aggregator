@@ -3,12 +3,51 @@
 > Status handoff for any agent/developer picking this up. Read this first, then
 > [PLAN.md](PLAN.md) for the full design rationale.
 
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-25
 **Overall status:** ✅ Working prototype complete, verified end-to-end with a **live**
 Gemini API key, deployed to Railway with a custom-designed UI, pushed to GitHub, and the
 5-slide deck is built. Remaining: the <3-min demo video (the brief accepts a hosted link
 OR a video — the hosted link is already done, so the video is optional polish, not a
 blocker).
+
+**"Make it more impressive" round (2026-07-25):** user felt the app was too basic vs.
+other candidates' submissions and asked for 3 things: (1) multi-LLM support, not just
+Gemini, (2) the "Ask" tab turned into a floating chat-bubble instead of a plain tab,
+(3) general "make it more impressive." Delivered:
+
+1. **Multi-provider LLM** (`src/llm.py` refactor) — Gemini stays the default and is the
+   only one fully verified (all screenshots/tests/deploy use it). Added a second
+   **OpenAI-compatible** path (`_generate_openai_compatible`, uses the `openai` SDK)
+   that works with NVIDIA NIM (default base URL), OpenAI itself, Groq, or anything
+   speaking the same API shape — selectable via a sidebar dropdown
+   (`st.session_state["llm_provider"]`). **Not live-tested** — no second-provider key
+   was available at build time. If given an NVIDIA/OpenAI key later, verify with:
+   `LLM_PROVIDER=openai_compatible OPENAI_API_KEY=... python -c "from src import llm; print(llm._generate('hello'))"`.
+   The refactor is low-risk: `extract_alerts`/`entity_rationale`/`exec_summary`/
+   `nl_query` never changed — they only ever call `is_available()`/`_generate()`,
+   which now dispatch on `get_provider()`.
+2. **Floating chat bubble** (`floating_chat()` in `app.py`, replaces the old "Ask" tab)
+   — a real multi-turn chat (`st.chat_message`/`st.chat_input`, history in
+   `st.session_state["chat_history"]`) inside a `st.popover`, pinned to the
+   bottom-right corner of the viewport via `st.container(key="floating_chat")` + CSS.
+   **Non-obvious CSS gotcha hit and fixed:** Streamlit's `.stVerticalBlock` sets
+   `width: 100%` by default; combined with `position: fixed; right: 24px` and no
+   `left`, the browser computed the container at full viewport width with its left
+   edge at `-24px` (verified via Playwright `getComputedStyle` — this is NOT a
+   `contain`/`transform` containing-block issue, both were `none` up the whole
+   ancestor chain; it's purely the inherited 100% width fighting the right-anchored
+   fixed position). Fix: add `width: fit-content !important` to `.st-key-floating_chat`.
+   If any *other* element is ever pinned with `position: fixed` in this app, expect
+   the same bug and apply the same fix.
+3. **Score breakdown waterfall chart** (`_score_waterfall()` in `app.py`, drill-down
+   tab) — a Plotly waterfall showing each fired signal's point contribution building
+   up to the final score, visually reinforcing the "auditable score" story. Handles
+   the case where raw signal weights sum above 100 (score is capped) by drawing a
+   dashed "score cap (100)" reference line rather than misrepresenting the total.
+
+All 7 pytest tests still pass unchanged (provider defaults to Gemini, so the tested
+path is untouched). Screenshots, deck, and the live Railway deploy were all refreshed
+to reflect the new UI after this round — see the git log for the exact commit.
 
 **UI redesign (2026-07-24, later):** the original UI used Streamlit defaults (large top
 whitespace, emoji-prefixed labels/tabs, default red/blue alert boxes) — flagged by the

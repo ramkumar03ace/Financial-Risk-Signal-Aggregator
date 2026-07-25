@@ -23,21 +23,24 @@ today review these signals manually.
    reactivation, PEP, adverse media, …).
 3. **Scores & ranks** each customer 0–100 → tier (Low / Medium / High / Critical),
    prioritised for the analyst.
-4. **Explains** every flag with a Gemini-written rationale + recommended action
-   (Monitor → EDD → Escalate to MLRO → File SAR) grounded in the evidence.
+4. **Explains** every flag with an AI-written rationale + recommended action
+   (Monitor → EDD → Escalate to MLRO → File SAR) grounded in the evidence, plus a
+   waterfall chart showing exactly how each signal's points built the final score.
 5. **Presents** it in a Streamlit dashboard: executive summary, ranked register,
-   per-entity drill-down, natural-language Q&A, and CSV/JSON export.
+   per-entity drill-down, a floating multi-turn chat for natural-language questions,
+   and CSV/JSON export.
 
 ## Architecture
 
 ```
 Inputs (CSV transactions / JSON customers / pasted alert text)
   -> [1] Ingestion & normalisation (pandas): parse, standardise, join on customer_id
-  -> [4] LLM extraction (Gemini): unstructured alerts -> structured hits per entity
+  -> [4] LLM extraction: unstructured alerts -> structured hits per entity
   -> [2] Rule engine (deterministic): fire weighted signals with evidence
   -> [3] Scoring: aggregate -> 0-100 score -> tier -> priority rank
-  -> [5] AI reasoning (Gemini): per-entity rationale + action; portfolio exec summary
-  -> [6] Streamlit dashboard: register, drill-down, charts, NL query, export
+  -> [5] AI reasoning: per-entity rationale + action; portfolio exec summary
+  -> [6] Streamlit dashboard: register, drill-down, score waterfall, floating
+         chat, export
 ```
 
 Layers 1–3 run with **zero LLM calls**; layers 4–5 enrich the result. If no API
@@ -50,12 +53,28 @@ so it always works.
 |---|---|
 | Language | Python 3.11+ |
 | Data | pandas |
-| LLM | Google Gemini (`gemini-flash-latest`, fallback `gemini-flash-lite-latest`) via the `google-genai` SDK |
-| UI | Streamlit |
-| Charts | Plotly |
+| LLM | **Multi-provider** (sidebar-selectable) — Google Gemini (`gemini-flash-latest`, default, fully tested) or any OpenAI-compatible API (NVIDIA NIM, OpenAI, Groq, …) via the `openai` SDK. See [`src/llm.py`](src/llm.py) — `get_provider()` / `_generate()` are the only provider-aware functions; everything else is provider-agnostic. |
+| UI | Streamlit (`st.popover` + `st.chat_message`/`st.chat_input` for the floating chat) |
+| Charts | Plotly (bar charts, score gauge, score-breakdown waterfall) |
 | Validation | pydantic |
 | Config/secrets | python-dotenv + `st.secrets` |
 | Tests | pytest |
+
+### Adding a second LLM provider
+
+Gemini is the default and the only provider verified end-to-end (screenshots, tests,
+and the deployed app all use it). A second **OpenAI-compatible** path exists in the
+code and sidebar dropdown for NVIDIA NIM / OpenAI / Groq / etc. — set these env vars
+(see [`.env.example`](.env.example)) and select it in the sidebar:
+```
+LLM_PROVIDER=openai_compatible
+OPENAI_API_KEY=your_key_here
+OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1   # default: NVIDIA's free catalog
+OPENAI_MODEL=meta/llama-3.3-70b-instruct
+```
+This path has not been live-tested against a real key (none was available at build
+time) — the code is verified not to crash without one (graceful fallback, same as
+Gemini), but hasn't been confirmed to produce a real response yet.
 
 ## Data assumptions
 
@@ -162,7 +181,7 @@ railway up --detach -m "<summary>"
 ```
 app.py            Streamlit UI            config.py     rule weights & thresholds
 src/ingestion.py  load + join sources     src/rules.py  deterministic signal rules
-src/scoring.py    aggregate -> rank       src/llm.py    Gemini: extract/rationale/summary/Q&A
+src/scoring.py    aggregate -> rank       src/llm.py    multi-provider LLM: extract/rationale/summary/chat
 src/schemas.py    pydantic models         prompts/      LLM prompt templates
 data/             sample CSV/JSON/text    tests/        pytest scenario tests
 scripts/          generate_dataset.py (regenerate the sample data, seeded/reproducible)

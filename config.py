@@ -15,6 +15,12 @@ score is what it is by reading this one file.
 DEFAULT_GEMINI_MODEL = "gemini-flash-latest"
 FALLBACK_GEMINI_MODEL = "gemini-flash-lite-latest"
 
+# Second provider, selectable in the sidebar: any OpenAI-compatible API.
+# Default points at NVIDIA NIM's free catalog (integrate.api.nvidia.com) with
+# a capable open model; override OPENAI_BASE_URL / OPENAI_MODEL env vars to
+# point at OpenAI itself, Groq, or another compatible endpoint instead.
+DEFAULT_OPENAI_MODEL = "meta/llama-3.3-70b-instruct"
+
 # ---------------------------------------------------------------------------
 # Rule thresholds
 # ---------------------------------------------------------------------------

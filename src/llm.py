@@ -1,5 +1,6 @@
 """
-LLM layer (Google Gemini).
+LLM layer — multi-provider (Google Gemini, or any OpenAI-compatible API such
+as NVIDIA NIM, OpenAI itself, or Groq).
 
 Responsibilities — and their strict limits:
   1. extract_alerts   : parse unstructured alert text into structured hits.
@@ -8,9 +9,16 @@ Responsibilities — and their strict limits:
   4. nl_query         : answer questions grounded in the risk register.
 
 The LLM NEVER computes a risk score — the deterministic rule engine does that.
-Every function degrades gracefully: if no API key is configured (or a call
+Every function degrades gracefully: if no provider is configured (or a call
 fails), a transparent heuristic/templated fallback is used so the app always
 works. Fallback results are flagged so the UI can say "AI unavailable".
+
+Provider selection: `get_provider()` checks (in order) a Streamlit session
+override (set by the sidebar dropdown), the LLM_PROVIDER env var, defaulting
+to Gemini. Everything below `_generate()` — extract_alerts, entity_rationale,
+exec_summary, nl_query — is provider-agnostic; they only ever call
+`is_available()` / `_generate()`, so adding a provider means touching only
+the block below, not the four functions that use it.
 """
 
 from __future__ import annotations
@@ -24,7 +32,7 @@ from typing import Any, Dict, List, Optional
 import config
 from src.schemas import AlertHit, EntityRisk
 
-# Optional dependency — the app must still run if it isn't installed.
+# Optional dependencies — the app must still run if either is missing.
 try:
     from google import genai
 
@@ -33,7 +41,22 @@ except Exception:  # pragma: no cover
     genai = None
     _GENAI_IMPORTED = False
 
+try:
+    import openai as _openai_sdk
+
+    _OPENAI_IMPORTED = True
+except Exception:  # pragma: no cover
+    _openai_sdk = None
+    _OPENAI_IMPORTED = False
+
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+PROVIDER_GEMINI = "gemini"
+PROVIDER_OPENAI = "openai_compatible"
+PROVIDERS = {
+    PROVIDER_GEMINI: "Google Gemini",
+    PROVIDER_OPENAI: "OpenAI-compatible (NVIDIA NIM / OpenAI / Groq / ...)",
+}
 
 _NEGATIVE_KEYWORDS = (
     "probe", "sanction", "ofac", "adverse", "bribery", "kickback",
@@ -46,26 +69,60 @@ _CLEAN_PHRASES = (
 
 
 # ---------------------------------------------------------------------------
-# API key / availability
+# Provider selection, API keys, availability
 # ---------------------------------------------------------------------------
-def get_api_key() -> Optional[str]:
-    """Look for the key in Streamlit secrets first, then the environment."""
+def _session_get(key: str) -> Optional[str]:
+    """Read a Streamlit session_state value if Streamlit is running; else None."""
     try:
         import streamlit as st  # local import — keep core LLM usable without Streamlit
 
-        if "GEMINI_API_KEY" in st.secrets:
-            return st.secrets["GEMINI_API_KEY"]
+        return st.session_state.get(key)
+    except Exception:
+        return None
+
+
+def get_provider() -> str:
+    """Currently selected provider: sidebar override > env var > Gemini default."""
+    return _session_get("llm_provider") or os.getenv("LLM_PROVIDER", PROVIDER_GEMINI)
+
+
+def get_api_key(provider: Optional[str] = None) -> Optional[str]:
+    """Look for the active provider's key in Streamlit secrets, then the env."""
+    provider = provider or get_provider()
+    key_name = "GEMINI_API_KEY" if provider == PROVIDER_GEMINI else "OPENAI_API_KEY"
+    try:
+        import streamlit as st
+
+        if key_name in st.secrets:
+            return st.secrets[key_name]
     except Exception:
         pass
-    return os.getenv("GEMINI_API_KEY")
+    return os.getenv(key_name)
 
 
-def is_available() -> bool:
-    return _GENAI_IMPORTED and bool(get_api_key())
+def is_available(provider: Optional[str] = None) -> bool:
+    provider = provider or get_provider()
+    if provider == PROVIDER_GEMINI:
+        return _GENAI_IMPORTED and bool(get_api_key(PROVIDER_GEMINI))
+    return _OPENAI_IMPORTED and bool(get_api_key(PROVIDER_OPENAI))
 
 
-def _model_name() -> str:
-    return os.getenv("GEMINI_MODEL", config.DEFAULT_GEMINI_MODEL)
+def provider_status() -> Dict[str, Any]:
+    """Everything the sidebar needs to render a status chip."""
+    provider = get_provider()
+    return {
+        "provider": provider,
+        "label": PROVIDERS.get(provider, provider),
+        "available": is_available(provider),
+        "model": _model_name(provider),
+    }
+
+
+def _model_name(provider: Optional[str] = None) -> str:
+    provider = provider or get_provider()
+    if provider == PROVIDER_GEMINI:
+        return os.getenv("GEMINI_MODEL", config.DEFAULT_GEMINI_MODEL)
+    return os.getenv("OPENAI_MODEL", config.DEFAULT_OPENAI_MODEL)
 
 
 def _load_prompt(name: str) -> str:
@@ -76,11 +133,18 @@ def _load_prompt(name: str) -> str:
 # Low-level generation
 # ---------------------------------------------------------------------------
 def _generate(prompt: str) -> Optional[str]:
-    """Call Gemini and return raw text, or None if every model attempt fails."""
-    if not is_available():
+    """Call the active provider and return raw text, or None on failure."""
+    provider = get_provider()
+    if not is_available(provider):
         return None
-    client = genai.Client(api_key=get_api_key())
-    for model in (_model_name(), config.FALLBACK_GEMINI_MODEL):
+    if provider == PROVIDER_GEMINI:
+        return _generate_gemini(prompt)
+    return _generate_openai_compatible(prompt)
+
+
+def _generate_gemini(prompt: str) -> Optional[str]:
+    client = genai.Client(api_key=get_api_key(PROVIDER_GEMINI))
+    for model in (_model_name(PROVIDER_GEMINI), config.FALLBACK_GEMINI_MODEL):
         try:
             resp = client.models.generate_content(model=model, contents=prompt)
             text = (resp.text or "").strip()
@@ -89,6 +153,25 @@ def _generate(prompt: str) -> Optional[str]:
         except Exception:
             continue
     return None
+
+
+def _generate_openai_compatible(prompt: str) -> Optional[str]:
+    """Works for NVIDIA NIM, OpenAI itself, Groq, or any OpenAI-compatible API —
+    swap OPENAI_BASE_URL / OPENAI_MODEL to point at a different one."""
+    try:
+        client = _openai_sdk.OpenAI(
+            api_key=get_api_key(PROVIDER_OPENAI),
+            base_url=os.getenv("OPENAI_BASE_URL", "https://integrate.api.nvidia.com/v1"),
+        )
+        resp = client.chat.completions.create(
+            model=_model_name(PROVIDER_OPENAI),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        return text or None
+    except Exception:
+        return None
 
 
 def _parse_json(text: Optional[str]) -> Optional[Any]:

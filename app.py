@@ -136,6 +136,21 @@ def inject_theme() -> None:
             font-family: 'IBM Plex Mono', monospace; font-size: 1.9rem;
             font-weight: 600; color: var(--ink);
         }
+        .st-key-floating_chat {
+            position: fixed !important;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            width: fit-content !important;
+        }
+        .st-key-floating_chat button {
+            border-radius: 999px !important;
+            box-shadow: 0 4px 16px rgba(20, 23, 28, 0.25);
+            background: var(--accent) !important;
+            color: white !important;
+            border: none !important;
+            font-weight: 600;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -206,14 +221,22 @@ def sidebar() -> None:
     st.sidebar.title("Risk Aggregator")
     st.sidebar.caption("Structured + unstructured signals → prioritised risk view")
 
-    if llm.is_available():
+    st.sidebar.selectbox(
+        "AI provider",
+        options=list(llm.PROVIDERS.keys()),
+        format_func=lambda p: llm.PROVIDERS[p],
+        key="llm_provider",
+    )
+    status = llm.provider_status()
+    short_label = status["label"].split(" (")[0]
+    if status["available"]:
         st.sidebar.markdown(
-            chip("Gemini connected — AI reasoning on", OK_COLOR),
+            chip(f"{short_label} connected — {status['model']}", OK_COLOR),
             unsafe_allow_html=True,
         )
     else:
         st.sidebar.markdown(
-            chip("No Gemini key — rules + fallback mode", WARN_COLOR),
+            chip(f"{short_label} — no key, using rules + fallback mode", WARN_COLOR),
             unsafe_allow_html=True,
         )
 
@@ -392,6 +415,10 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
     with gauge:
         st.plotly_chart(_score_gauge(er.score, er.tier), use_container_width=True)
 
+    if er.signals:
+        st.markdown("#### How the score was built")
+        st.plotly_chart(_score_waterfall(er), use_container_width=True)
+
     st.markdown("#### AI rationale")
     st.write(md_safe(er.rationale) or "—")
 
@@ -436,16 +463,31 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
         )
 
 
-def ask_tab(result: Dict[str, Any]) -> None:
-    st.subheader("Ask the risk data")
-    st.caption("Natural-language questions answered from the risk register (needs Gemini key).")
-    q = st.text_input(
-        "e.g. Which customers have sanctions exposure? Why is Ravi Menon critical?"
-    )
-    if q:
-        with st.spinner("Thinking…"):
-            answer = llm.nl_query(q, result["register"])
-        st.write(md_safe(answer))
+def floating_chat(result: Dict[str, Any]) -> None:
+    """A chat bubble pinned to the bottom-right corner of the viewport (via a
+    keyed container + CSS), open across every tab — not a separate page."""
+    with st.container(key="floating_chat"):
+        with st.popover("Ask", icon=":material/forum:"):
+            st.markdown("**Ask the risk data**")
+            st.caption("Answers are grounded in the current risk register.")
+
+            history = st.session_state.setdefault("chat_history", [])
+            if not history:
+                st.caption(
+                    "Try: \"Which customers have sanctions exposure?\" or "
+                    "\"Why is Ravi Menon flagged?\""
+                )
+            for msg in history:
+                with st.chat_message(msg["role"]):
+                    st.write(md_safe(msg["content"]))
+
+            question = st.chat_input("Ask a question…")
+            if question:
+                history.append({"role": "user", "content": question})
+                with st.spinner("Thinking…"):
+                    answer = llm.nl_query(question, result["register"])
+                history.append({"role": "assistant", "content": answer})
+                st.rerun()
 
 
 def export_tab(result: Dict[str, Any]) -> None:
@@ -506,6 +548,39 @@ def _score_gauge(score: int, tier: str) -> go.Figure:
     return fig
 
 
+def _score_waterfall(er: EntityRisk) -> go.Figure:
+    """Shows exactly how each rule's weight stacked up to the final score —
+    the visual proof that the number is auditable, not an AI guess."""
+    labels = [s.label for s in er.signals] + ["Total"]
+    weights = [s.weight for s in er.signals]
+    raw_total = sum(weights)
+    fig = go.Figure(
+        go.Waterfall(
+            orientation="v",
+            measure=["relative"] * len(weights) + ["total"],
+            x=labels,
+            y=weights + [0],
+            text=[f"+{w}" for w in weights] + [str(raw_total)],
+            textposition="outside",
+            connector={"line": {"color": "#DDD9CF"}},
+            increasing={"marker": {"color": TIER_COLORS.get(er.tier, "#666")}},
+            totals={"marker": {"color": "#14171C"}},
+        )
+    )
+    if raw_total > 100:
+        fig.add_hline(
+            y=100, line_dash="dash", line_color="#9B1C1C",
+            annotation_text="score cap (100)", annotation_position="top left",
+            annotation_font_size=10,
+        )
+    fig.update_layout(
+        showlegend=False, font_family="IBM Plex Sans", height=280,
+        margin=dict(l=10, r=10, t=20, b=10),
+        yaxis=dict(range=[0, max(105, raw_total + 10)], title="Points"),
+    )
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -536,9 +611,7 @@ def main() -> None:
         return
 
     result = st.session_state["result"]
-    tabs = st.tabs(
-        ["Overview", "Risk Register", "Drill-down", "Ask", "Export"]
-    )
+    tabs = st.tabs(["Overview", "Risk Register", "Drill-down", "Export"])
     with tabs[0]:
         overview_tab(result)
     with tabs[1]:
@@ -546,9 +619,9 @@ def main() -> None:
     with tabs[2]:
         drilldown_tab(result)
     with tabs[3]:
-        ask_tab(result)
-    with tabs[4]:
         export_tab(result)
+
+    floating_chat(result)
 
 
 if __name__ == "__main__":
