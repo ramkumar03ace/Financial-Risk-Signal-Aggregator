@@ -76,6 +76,25 @@ This path has not been live-tested against a real key (none was available at bui
 time) — the code is verified not to crash without one (graceful fallback, same as
 Gemini), but hasn't been confirmed to produce a real response yet.
 
+### Free NVIDIA setup
+
+The app supports NVIDIA NIM through its OpenAI-compatible endpoint. You can
+paste the key into the sidebar for a temporary local session, or save it in
+`.env`:
+
+```
+LLM_PROVIDER=openai_compatible
+NVIDIA_API_KEY=your_nvapi_key_here
+OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
+OPENAI_MODEL=openai/gpt-oss-20b
+```
+
+To get the key, go to <https://build.nvidia.com/models>, sign in or create an
+NVIDIA Developer account, open a free endpoint text model such as
+`openai/gpt-oss-20b`, then click **Generate API Key** / **Get API Key** and copy
+the `nvapi-...` value. For non-NVIDIA OpenAI-compatible providers, the app also
+accepts `OPENAI_API_KEY`.
+
 ## Data assumptions
 
 - Synthetic dataset generated for demonstration — **no proprietary or client data**.

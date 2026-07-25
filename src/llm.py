@@ -26,8 +26,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 import config
 from src.schemas import AlertHit, EntityRisk
@@ -55,7 +56,14 @@ PROVIDER_GEMINI = "gemini"
 PROVIDER_OPENAI = "openai_compatible"
 PROVIDERS = {
     PROVIDER_GEMINI: "Google Gemini",
-    PROVIDER_OPENAI: "OpenAI-compatible (NVIDIA NIM / OpenAI / Groq / ...)",
+    PROVIDER_OPENAI: "NVIDIA NIM / OpenAI-compatible",
+}
+
+PROVIDER_KEY_NAMES = {
+    PROVIDER_GEMINI: ("GEMINI_API_KEY",),
+    # NVIDIA's examples use NVIDIA_API_KEY. OPENAI_API_KEY remains supported so
+    # the same provider path can still target OpenAI, Groq, or another gateway.
+    PROVIDER_OPENAI: ("NVIDIA_API_KEY", "OPENAI_API_KEY"),
 }
 
 _NEGATIVE_KEYWORDS = (
@@ -86,18 +94,61 @@ def get_provider() -> str:
     return _session_get("llm_provider") or os.getenv("LLM_PROVIDER", PROVIDER_GEMINI)
 
 
-def get_api_key(provider: Optional[str] = None) -> Optional[str]:
-    """Look for the active provider's key in Streamlit secrets, then the env."""
-    provider = provider or get_provider()
-    key_name = "GEMINI_API_KEY" if provider == PROVIDER_GEMINI else "OPENAI_API_KEY"
+@contextmanager
+def use_provider(provider: str) -> Iterator[None]:
+    """Temporarily route provider-agnostic LLM calls to a specific provider."""
     try:
         import streamlit as st
 
-        if key_name in st.secrets:
-            return st.secrets[key_name]
+        had_value = "llm_provider" in st.session_state
+        previous = st.session_state.get("llm_provider")
+        st.session_state["llm_provider"] = provider
+        try:
+            yield
+        finally:
+            if had_value:
+                st.session_state["llm_provider"] = previous
+            else:
+                del st.session_state["llm_provider"]
+    except Exception:
+        previous_env = os.getenv("LLM_PROVIDER")
+        os.environ["LLM_PROVIDER"] = provider
+        try:
+            yield
+        finally:
+            if previous_env is None:
+                os.environ.pop("LLM_PROVIDER", None)
+            else:
+                os.environ["LLM_PROVIDER"] = previous_env
+
+
+def get_api_key(provider: Optional[str] = None) -> Optional[str]:
+    """Look for the active provider's key in Streamlit secrets, then the env."""
+    provider = provider or get_provider()
+    session_key = "gemini_api_key" if provider == PROVIDER_GEMINI else "openai_api_key"
+    session_value = _session_get(session_key)
+    if session_value:
+        return session_value.strip()
+    key_names = PROVIDER_KEY_NAMES.get(provider, ("OPENAI_API_KEY",))
+    try:
+        import streamlit as st
+
+        for key_name in key_names:
+            if key_name in st.secrets:
+                return st.secrets[key_name]
     except Exception:
         pass
-    return os.getenv(key_name)
+    for key_name in key_names:
+        value = os.getenv(key_name)
+        if value:
+            return value
+    return None
+
+
+def expected_key_names(provider: Optional[str] = None) -> tuple[str, ...]:
+    """Environment/secret names accepted for the selected provider."""
+    provider = provider or get_provider()
+    return PROVIDER_KEY_NAMES.get(provider, ("OPENAI_API_KEY",))
 
 
 def is_available(provider: Optional[str] = None) -> bool:
@@ -343,9 +394,12 @@ def nl_query(question: str, register: List[EntityRisk]) -> str:
         text = _generate(prompt)
         if text:
             return text
+    provider = get_provider()
+    key_names = " or ".join(expected_key_names(provider))
     return (
-        "Natural-language answers need a Gemini API key. Configure GEMINI_API_KEY "
-        "to enable this. (The rest of the dashboard works without it.)"
+        f"Natural-language answers need an API key for {PROVIDERS.get(provider, provider)}. "
+        f"Configure {key_names} to enable this. "
+        "(The rest of the dashboard works without it.)"
     )
 
 

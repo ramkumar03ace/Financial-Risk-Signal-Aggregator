@@ -197,6 +197,53 @@ def run_analysis(
     }
 
 
+def run_model_comparison(
+    txns_df: pd.DataFrame,
+    customers: List[Dict[str, Any]],
+    alert_text: str,
+    rationale_limit: int = 5,
+) -> Dict[str, Any]:
+    """Run Gemini and NVIDIA/OpenAI-compatible models on the same inputs."""
+    entities = build_entities(txns_df, customers)
+    name_map = {c["customer_id"]: c.get("name", c["customer_id"]) for c in customers}
+    compared: Dict[str, Any] = {}
+
+    for provider in (llm.PROVIDER_GEMINI, llm.PROVIDER_OPENAI):
+        with llm.use_provider(provider):
+            hits = llm.extract_alerts(alert_text or "", name_map)
+            register = build_risk_register(entities, hits)
+            flagged = [er for er in register if er.score > 0][:rationale_limit]
+            rationales: Dict[str, Dict[str, Any]] = {}
+
+            for er in flagged:
+                profile = entities[er.customer_id]["profile"]
+                result = llm.entity_rationale(er, profile)
+                er.rationale = result["rationale"]
+                er.recommended_action = result["recommended_action"]
+                er.confidence = result["confidence"]
+                rationales[er.customer_id] = {
+                    "name": er.name,
+                    "tier": er.tier,
+                    "score": er.score,
+                    "signals": er.signal_codes,
+                    "rationale": er.rationale,
+                    "recommended_action": er.recommended_action,
+                    "confidence": er.confidence,
+                    "ai_generated": result.get("ai_generated", False),
+                }
+
+            compared[provider] = {
+                "label": llm.PROVIDERS[provider],
+                "available": llm.is_available(provider),
+                "model": llm.provider_status()["model"],
+                "hits": hits,
+                "register": register,
+                "rationales": rationales,
+            }
+
+    return {"providers": compared}
+
+
 def register_to_df(register: List[EntityRisk]) -> pd.DataFrame:
     return pd.DataFrame(
         [
@@ -227,6 +274,34 @@ def sidebar() -> None:
         format_func=lambda p: llm.PROVIDERS[p],
         key="llm_provider",
     )
+    provider = llm.get_provider()
+    if provider == llm.PROVIDER_OPENAI:
+        st.sidebar.text_input(
+            "NVIDIA / OpenAI-compatible API key",
+            type="password",
+            placeholder="Paste nvapi-... key here",
+            key="openai_api_key",
+            help=(
+                "Stored only in this Streamlit session. For permanent local use, "
+                "put NVIDIA_API_KEY=... in .env or Railway variables."
+            ),
+        )
+        if st.session_state.get("openai_api_key", "").strip():
+            st.sidebar.caption("Session key detected for NVIDIA/OpenAI-compatible calls.")
+    else:
+        st.sidebar.text_input(
+            "Gemini API key",
+            type="password",
+            placeholder="Paste AIza... key here",
+            key="gemini_api_key",
+            help=(
+                "Stored only in this Streamlit session. For permanent local use, "
+                "put GEMINI_API_KEY=... in .env or Railway variables."
+            ),
+        )
+        if st.session_state.get("gemini_api_key", "").strip():
+            st.sidebar.caption("Session key detected for Gemini calls.")
+
     status = llm.provider_status()
     short_label = status["label"].split(" (")[0]
     if status["available"]:
@@ -239,6 +314,20 @@ def sidebar() -> None:
             chip(f"{short_label} — no key, using rules + fallback mode", WARN_COLOR),
             unsafe_allow_html=True,
         )
+
+    if not status["available"]:
+        key_names = " / ".join(llm.expected_key_names(status["provider"]))
+        if status["provider"] == llm.PROVIDER_OPENAI:
+            st.sidebar.caption(
+                "For NVIDIA: open build.nvidia.com, choose a free endpoint model, "
+                "click Generate API Key, then paste it below or save it as NVIDIA_API_KEY."
+            )
+        else:
+            st.sidebar.caption(
+                "For Gemini: create a key in Google AI Studio, then paste it below "
+                "or save it as GEMINI_API_KEY."
+            )
+        st.sidebar.caption(f"Accepted key name(s): {key_names}")
 
     st.sidebar.subheader("1 · Load data")
     if st.sidebar.button("Load sample dataset", use_container_width=True):
@@ -265,6 +354,8 @@ def sidebar() -> None:
     st.sidebar.subheader("2 · Analyse")
     if st.sidebar.button("Run risk analysis", type="primary", use_container_width=True):
         _run_from_inputs(txn_file, cust_file, alert_text)
+    if st.sidebar.button("Run Gemini vs NVIDIA comparison", use_container_width=True):
+        _run_comparison_from_inputs(txn_file, cust_file, alert_text)
 
 
 def _load_sample_into_state() -> None:
@@ -303,6 +394,35 @@ def _run_from_inputs(txn_file, cust_file, alert_text) -> None:
             st.session_state["result"] = run_analysis(txns_df, customers, alert_text)
     except Exception as exc:  # surface ingestion/format errors to the user
         st.sidebar.error(f"Could not analyse inputs: {exc}")
+
+
+def _run_comparison_from_inputs(txn_file, cust_file, alert_text) -> None:
+    try:
+        if txn_file is not None:
+            txns_df = load_transactions(txn_file)
+        elif "txns_df" in st.session_state:
+            txns_df = st.session_state["txns_df"]
+        else:
+            st.sidebar.error("Provide a transactions CSV (or load the sample dataset).")
+            return
+
+        if cust_file is not None:
+            customers = load_customers(cust_file)
+        elif "customers" in st.session_state:
+            customers = st.session_state["customers"]
+        else:
+            st.sidebar.error("Provide a customers JSON (or load the sample dataset).")
+            return
+
+        with st.spinner("Comparing Gemini and NVIDIA on the same alert text..."):
+            st.session_state["model_comparison"] = run_model_comparison(
+                txns_df, customers, alert_text
+            )
+            if "result" not in st.session_state:
+                st.session_state["result"] = run_analysis(txns_df, customers, alert_text)
+            st.session_state["comparison_ready"] = True
+    except Exception as exc:
+        st.sidebar.error(f"Could not compare models: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -463,6 +583,115 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
         )
 
 
+def model_compare_tab(comparison: Dict[str, Any], key_prefix: str = "model_compare") -> None:
+    st.subheader("Gemini vs NVIDIA comparison")
+    providers = comparison.get("providers", {})
+    if not providers:
+        st.info("Run the comparison from the sidebar to populate this view.")
+        return
+
+    status_cols = st.columns(len(providers))
+    for col, (provider, data) in zip(status_cols, providers.items()):
+        with col:
+            state = "connected" if data["available"] else "fallback mode"
+            color = OK_COLOR if data["available"] else WARN_COLOR
+            st.markdown(
+                chip(f"{data['label']} - {state}", color),
+                unsafe_allow_html=True,
+            )
+            st.caption(f"Model: {data['model']}")
+
+    st.markdown("#### Extracted alert differences")
+    hit_rows = []
+    for provider, data in providers.items():
+        for hit in data["hits"]:
+            hit_rows.append(
+                {
+                    "Provider": data["label"],
+                    "Entity": hit.entity_id,
+                    "Type": hit.alert_type,
+                    "Severity": hit.severity,
+                    "Summary": md_safe(hit.summary),
+                }
+            )
+    if hit_rows:
+        st.dataframe(pd.DataFrame(hit_rows), use_container_width=True, hide_index=True)
+    else:
+        st.info("Neither model extracted an external alert hit.")
+
+    st.markdown("#### Score / tier deltas after each model's extraction")
+    delta_rows = _comparison_delta_rows(providers)
+    changed = [row for row in delta_rows if row["Score delta"] != 0 or row["Tier changed"]]
+    if changed:
+        st.dataframe(pd.DataFrame(changed), use_container_width=True, hide_index=True)
+    else:
+        st.success("No score or tier differences from extracted alerts.")
+
+    st.markdown("#### Side-by-side rationales")
+    rationale_ids = sorted(
+        {
+            cid
+            for data in providers.values()
+            for cid in data.get("rationales", {}).keys()
+        }
+    )
+    if not rationale_ids:
+        st.info("No flagged customers were available for rationale comparison.")
+        return
+
+    id_to_name = {
+        cid: rat["name"]
+        for data in providers.values()
+        for cid, rat in data.get("rationales", {}).items()
+    }
+    selected_id = st.selectbox(
+        "Choose a flagged customer",
+        rationale_ids,
+        format_func=lambda cid: id_to_name.get(cid, cid),
+        key=f"{key_prefix}_customer",
+    )
+    cols = st.columns(len(providers))
+    for col, (_, data) in zip(cols, providers.items()):
+        with col:
+            rat = data.get("rationales", {}).get(selected_id)
+            st.markdown(f"**{data['label']}**")
+            if not rat:
+                st.caption("This provider did not rank this customer in the compared top set.")
+                continue
+            source = "AI" if rat["ai_generated"] else "fallback"
+            st.caption(
+                f"{rat['tier']} / {rat['score']} | {rat['recommended_action']} | {source}"
+            )
+            st.write(md_safe(rat["rationale"]))
+
+
+def _comparison_delta_rows(providers: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if llm.PROVIDER_GEMINI not in providers or llm.PROVIDER_OPENAI not in providers:
+        return []
+    gemini = {er.customer_id: er for er in providers[llm.PROVIDER_GEMINI]["register"]}
+    nvidia = {er.customer_id: er for er in providers[llm.PROVIDER_OPENAI]["register"]}
+    rows = []
+    for customer_id in sorted(set(gemini) | set(nvidia)):
+        g = gemini.get(customer_id)
+        n = nvidia.get(customer_id)
+        if not g or not n:
+            continue
+        rows.append(
+            {
+                "Customer": g.name,
+                "Gemini score": g.score,
+                "NVIDIA score": n.score,
+                "Score delta": n.score - g.score,
+                "Gemini tier": g.tier,
+                "NVIDIA tier": n.tier,
+                "Tier changed": g.tier != n.tier,
+                "Gemini signals": ", ".join(g.signal_codes) or "-",
+                "NVIDIA signals": ", ".join(n.signal_codes) or "-",
+            }
+        )
+    return rows
+
+
 def floating_chat(result: Dict[str, Any]) -> None:
     """A chat bubble pinned to the bottom-right corner of the viewport (via a
     keyed container + CSS), open across every tab — not a separate page."""
@@ -611,7 +840,17 @@ def main() -> None:
         return
 
     result = st.session_state["result"]
-    tabs = st.tabs(["Overview", "Risk Register", "Drill-down", "Export"])
+    if st.session_state.pop("comparison_ready", False):
+        st.success(
+            "Model comparison complete. Showing it below; it is also available in "
+            "the Model Compare tab."
+        )
+        model_compare_tab(
+            st.session_state.get("model_comparison", {}),
+            key_prefix="model_compare_inline",
+        )
+
+    tabs = st.tabs(["Overview", "Risk Register", "Drill-down", "Model Compare", "Export"])
     with tabs[0]:
         overview_tab(result)
     with tabs[1]:
@@ -619,6 +858,11 @@ def main() -> None:
     with tabs[2]:
         drilldown_tab(result)
     with tabs[3]:
+        model_compare_tab(
+            st.session_state.get("model_comparison", {}),
+            key_prefix="model_compare_tab",
+        )
+    with tabs[4]:
         export_tab(result)
 
     floating_chat(result)
