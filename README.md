@@ -53,47 +53,33 @@ so it always works.
 |---|---|
 | Language | Python 3.11+ |
 | Data | pandas |
-| LLM | **Multi-provider** (sidebar-selectable) — Google Gemini (`gemini-flash-latest`, default, fully tested) or any OpenAI-compatible API (NVIDIA NIM, OpenAI, Groq, …) via the `openai` SDK. See [`src/llm.py`](src/llm.py) — `get_provider()` / `_generate()` are the only provider-aware functions; everything else is provider-agnostic. |
+| LLM | **Multi-provider, both verified live** (sidebar-selectable) — Google Gemini (default) and NVIDIA NIM (or any OpenAI-compatible API: OpenAI, Groq, …) via the `openai` SDK, with a built-in **Gemini vs NVIDIA comparison** view. See [`src/llm.py`](src/llm.py) — `get_provider()` / `_generate()` are the only provider-aware functions; everything else is provider-agnostic. |
 | UI | Streamlit (`st.popover` + `st.chat_message`/`st.chat_input` for the floating chat) |
 | Charts | Plotly (bar charts, score gauge, score-breakdown waterfall) |
 | Validation | pydantic |
 | Config/secrets | python-dotenv + `st.secrets` |
 | Tests | pytest |
 
-### Adding a second LLM provider
+### Second LLM provider — Gemini vs. NVIDIA, both verified live
 
-Gemini is the default and the only provider verified end-to-end (screenshots, tests,
-and the deployed app all use it). A second **OpenAI-compatible** path exists in the
-code and sidebar dropdown for NVIDIA NIM / OpenAI / Groq / etc. — set these env vars
-(see [`.env.example`](.env.example)) and select it in the sidebar:
+Gemini is the default. A second **OpenAI-compatible** provider (NVIDIA NIM by
+default; also works with OpenAI, Groq, or any compatible gateway) is selectable in
+the sidebar dropdown, and **both are now verified end-to-end against real API
+keys** — including the **"Run Gemini vs NVIDIA comparison"** sidebar button, which
+runs the same alert text and transaction data through both models and shows, side
+by side: which alerts each model extracted, any score/tier deltas that resulted,
+and each model's full rationale for the same flagged customer (Model Compare tab).
+
+Paste a key directly into the sidebar for a temporary session, or set permanently:
 ```
 LLM_PROVIDER=openai_compatible
-OPENAI_API_KEY=your_key_here
-OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1   # default: NVIDIA's free catalog
-OPENAI_MODEL=meta/llama-3.3-70b-instruct
-```
-This path has not been live-tested against a real key (none was available at build
-time) — the code is verified not to crash without one (graceful fallback, same as
-Gemini), but hasn't been confirmed to produce a real response yet.
-
-### Free NVIDIA setup
-
-The app supports NVIDIA NIM through its OpenAI-compatible endpoint. You can
-paste the key into the sidebar for a temporary local session, or save it in
-`.env`:
-
-```
-LLM_PROVIDER=openai_compatible
-NVIDIA_API_KEY=your_nvapi_key_here
+NVIDIA_API_KEY=your_nvapi_key_here          # or OPENAI_API_KEY for other gateways
 OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
 OPENAI_MODEL=openai/gpt-oss-20b
 ```
-
-To get the key, go to <https://build.nvidia.com/models>, sign in or create an
-NVIDIA Developer account, open a free endpoint text model such as
-`openai/gpt-oss-20b`, then click **Generate API Key** / **Get API Key** and copy
-the `nvapi-...` value. For non-NVIDIA OpenAI-compatible providers, the app also
-accepts `OPENAI_API_KEY`.
+Get a free NVIDIA key at <https://build.nvidia.com/models> — sign in, open a free
+endpoint model (e.g. `openai/gpt-oss-20b`), click **Generate API Key**, copy the
+`nvapi-...` value.
 
 ## Data assumptions
 

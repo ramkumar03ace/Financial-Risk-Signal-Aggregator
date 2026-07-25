@@ -49,6 +49,42 @@ All 7 pytest tests still pass unchanged (provider defaults to Gemini, so the tes
 path is untouched). Screenshots, deck, and the live Railway deploy were all refreshed
 to reflect the new UI after this round — see the git log for the exact commit.
 
+**Update (2026-07-25, later):** the user independently extended this (own edits, not
+mine) with real polish: session-based API key entry directly in the sidebar (no .env
+needed to try a key), and a full **"Run Gemini vs NVIDIA comparison"** feature
+(`run_model_comparison()` in `app.py`, `llm.use_provider()` context manager, new
+Model Compare tab) that runs the same input through both providers and shows
+side-by-side extracted alerts, score/tier deltas, and rationales. The user added a
+real `NVIDIA_API_KEY`.
+
+**Real bug found and fixed while verifying the comparison feature (2026-07-25):**
+a standalone Python test (`llm._generate()` outside a real Streamlit session) showed
+Gemini and NVIDIA producing different results — looked verified. But testing the
+actual feature *inside the running app* showed the comparison tab reporting
+`Model: gemini-2.0-flash` under **both** the Gemini and NVIDIA columns, with
+near-identical extracted text. Root cause: `use_provider()` tried to overwrite
+`st.session_state["llm_provider"]` — the exact key the sidebar's
+`st.selectbox(..., key="llm_provider")` widget owns. Streamlit silently rejects
+programmatic overwrites of a widget-bound key once that widget has been
+instantiated in the current run (raises `StreamlitAPIException`, caught by
+`use_provider()`'s broad `except Exception:`, falling back to setting
+`os.environ["LLM_PROVIDER"]` — which does nothing, because `get_provider()` checks
+session_state *first* and the widget's real value, unchanged, always wins). Net
+effect: the compare feature silently called Gemini twice whenever the sidebar was
+on its default Gemini selection — which is virtually always, since NVIDIA is opt-in.
+My standalone test didn't catch this because outside a real Streamlit run there's no
+widget to conflict with, so the (broken) code path "worked" for the wrong reason.
+
+**Fix:** `get_provider()`/`use_provider()` now use a separate, non-widget-bound
+session key (`_llm_provider_override`) instead of touching `"llm_provider"`
+directly. Re-verified in the actual browser-driven app after the fix: Gemini and
+NVIDIA now show genuinely different models, different extracted alerts (NVIDIA
+caught a `cust_003` watchlist hit Gemini missed, causing a real Wei Chen
+65→85 / High→Critical delta), and distinctly different rationale writing styles.
+**Lesson reinforced:** a standalone script test of Streamlit-adjacent code is not
+equivalent to testing inside a real running session — session_state/widget
+interactions can only be verified by actually driving the browser-rendered app.
+
 **UI redesign (2026-07-24, later):** the original UI used Streamlit defaults (large top
 whitespace, emoji-prefixed labels/tabs, default red/blue alert boxes) — flagged by the
 user as looking generic/templated, plus a real bug: "Load sample dataset" gave no visible

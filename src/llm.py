@@ -79,6 +79,17 @@ _CLEAN_PHRASES = (
 # ---------------------------------------------------------------------------
 # Provider selection, API keys, availability
 # ---------------------------------------------------------------------------
+# NOTE: this is a *different* key from the sidebar's "llm_provider" widget key.
+# Streamlit forbids programmatically overwriting st.session_state for a key
+# that's already bound to a widget instantiated in the current script run — so
+# use_provider() must NOT touch "llm_provider" directly (it silently fails via
+# a caught StreamlitAPIException, leaving get_provider() stuck on whatever the
+# sidebar dropdown shows — this was a real bug: the "Gemini vs NVIDIA" compare
+# feature silently called Gemini twice whenever the sidebar was on its default
+# Gemini selection). A separate, non-widget-bound key sidesteps that entirely.
+_PROVIDER_OVERRIDE_KEY = "_llm_provider_override"
+
+
 def _session_get(key: str) -> Optional[str]:
     """Read a Streamlit session_state value if Streamlit is running; else None."""
     try:
@@ -90,26 +101,32 @@ def _session_get(key: str) -> Optional[str]:
 
 
 def get_provider() -> str:
-    """Currently selected provider: sidebar override > env var > Gemini default."""
-    return _session_get("llm_provider") or os.getenv("LLM_PROVIDER", PROVIDER_GEMINI)
+    """Currently selected provider: use_provider() override > sidebar widget >
+    env var > Gemini default."""
+    return (
+        _session_get(_PROVIDER_OVERRIDE_KEY)
+        or _session_get("llm_provider")
+        or os.getenv("LLM_PROVIDER", PROVIDER_GEMINI)
+    )
 
 
 @contextmanager
 def use_provider(provider: str) -> Iterator[None]:
-    """Temporarily route provider-agnostic LLM calls to a specific provider."""
+    """Temporarily route provider-agnostic LLM calls to a specific provider,
+    without touching the sidebar widget's own session_state key."""
     try:
         import streamlit as st
 
-        had_value = "llm_provider" in st.session_state
-        previous = st.session_state.get("llm_provider")
-        st.session_state["llm_provider"] = provider
+        had_value = _PROVIDER_OVERRIDE_KEY in st.session_state
+        previous = st.session_state.get(_PROVIDER_OVERRIDE_KEY)
+        st.session_state[_PROVIDER_OVERRIDE_KEY] = provider
         try:
             yield
         finally:
             if had_value:
-                st.session_state["llm_provider"] = previous
+                st.session_state[_PROVIDER_OVERRIDE_KEY] = previous
             else:
-                del st.session_state["llm_provider"]
+                st.session_state.pop(_PROVIDER_OVERRIDE_KEY, None)
     except Exception:
         previous_env = os.getenv("LLM_PROVIDER")
         os.environ["LLM_PROVIDER"] = provider
