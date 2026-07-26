@@ -75,6 +75,7 @@ def test_expected_signals_present(sample):
     assert "HIGH_RISK_JURISDICTION" in reg["John Doe"].signal_codes
     assert "PEP_EXPOSURE" in reg["John Doe"].signal_codes
     assert "KYC_INCOMPLETE" in reg["Sara Lopez"].signal_codes
+    assert "SANCTIONS_LIST_MATCH" in reg["Scott Roberts"].signal_codes
 
 
 def test_score_is_capped_at_100():

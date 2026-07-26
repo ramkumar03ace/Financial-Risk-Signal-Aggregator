@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 import pandas as pd
 
 import config
+from src.sanctions import match_sanctions
 from src.schemas import AlertHit, Signal
 
 
@@ -216,6 +217,34 @@ def rule_adverse_media(
     return [_signal("ADVERSE_MEDIA", f"External alert(s): {summary}")]
 
 
+def rule_sanctions_list_match(profile: Dict[str, Any], txns: pd.DataFrame) -> List[Signal]:
+    """Screen customer and transaction counterparties against the OFAC SDN snapshot."""
+    candidates = [("customer", str(profile.get("name", "")))]
+    if "counterparty" in txns.columns:
+        counterparties = sorted(
+            {
+                str(counterparty).strip()
+                for counterparty in txns["counterparty"].dropna().tolist()
+                if str(counterparty).strip()
+            }
+        )
+        candidates.extend(("counterparty", cp) for cp in counterparties)
+
+    for kind, candidate in candidates:
+        match = match_sanctions(candidate, config.SANCTIONS_MATCH_THRESHOLD)
+        if not match:
+            continue
+        return [
+            _signal(
+                "SANCTIONS_LIST_MATCH",
+                f"{kind.title()} '{candidate}' matched OFAC SDN entry "
+                f"'{match['sdn_name']}' under program {match['program']} "
+                f"(confidence {match['score']:.2f}).",
+            )
+        ]
+    return []
+
+
 def run_all_rules(
     entity: Dict[str, Any], adverse_hits: Optional[List[AlertHit]] = None
 ) -> List[Signal]:
@@ -236,4 +265,5 @@ def run_all_rules(
     signals += rule_pep_exposure(profile)
     signals += rule_cash_intensive(txns)
     signals += rule_adverse_media(profile, adverse_hits)
+    signals += rule_sanctions_list_match(profile, txns)
     return signals

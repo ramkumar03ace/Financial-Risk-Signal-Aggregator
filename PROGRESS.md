@@ -3,12 +3,40 @@
 > Status handoff for any agent/developer picking this up. Read this first, then
 > [PLAN.md](PLAN.md) for the full design rationale.
 
-**Last updated:** 2026-07-25
+**Last updated:** 2026-07-26
 **Overall status:** ✅ Working prototype complete, verified end-to-end with a **live**
 Gemini API key, deployed to Railway with a custom-designed UI, pushed to GitHub, and the
 5-slide deck is built. Remaining: the <3-min demo video (the brief accepts a hosted link
 OR a video — the hosted link is already done, so the video is optional polish, not a
 blocker).
+
+**OFAC SDN sanctions-screening round (2026-07-26):** added real-list sanctions
+screening without changing the rule-only scoring architecture.
+
+1. **Committed OFAC snapshot**: downloaded `data/sdn_snapshot.csv` from
+   `https://www.treasury.gov/ofac/downloads/sdn.csv` on 2026-07-26. The app reads
+   this local snapshot only; no Treasury.gov network call happens at startup. A
+   production version should refresh the file periodically and retain source/version
+   metadata.
+2. **New sanctions module** (`src/sanctions.py`): `load_sdn_list()` parses the
+   headerless OFAC CSV into `{name, program, sdn_type}` rows with `lru_cache`;
+   `match_sanctions()` normalizes names and uses `rapidfuzz` when installed, with a
+   `difflib.SequenceMatcher` fallback so the app still degrades gracefully.
+3. **New deterministic rule** (`rule_sanctions_list_match` in `src/rules.py`):
+   screens both the customer name and every distinct transaction counterparty. A
+   hit emits `SANCTIONS_LIST_MATCH` with weight 35 from `config.WEIGHTS`, making it
+   the heaviest single signal. `SANCTIONS_MATCH_THRESHOLD = 0.88` lives in
+   `config.py`.
+4. **Dataset refresh**: extended `scripts/generate_dataset.py` with one planted
+   real-list demo case, `cust_013` / Scott Roberts, whose counterparty
+   "Banco Nacional Cuba" fuzzy-matches the real SDN entry "BANCO NACIONAL DE CUBA".
+   Regenerated sample data: 68 customers / 1,974 transactions.
+5. **UI treatment**: `drilldown_tab()` now surfaces a distinct red OFAC SDN chip
+   and error callout when `SANCTIONS_LIST_MATCH` appears, so a sanctions hit cannot
+   get lost in the regular evidence table.
+6. **Validation**: added `tests/test_sanctions.py` for real SDN exact/near-exact
+   matches and a negative `Priya Shah` case; added a scoring assertion that Scott
+   Roberts has `SANCTIONS_LIST_MATCH`. `pytest -q` passes: 11 tests.
 
 **Network graph + deck refresh round (2026-07-25, later still):** user asked "is there
 more to improve, and what about a counterparty network graph" (a previously-documented
@@ -207,7 +235,7 @@ Run it: `.venv\Scripts\activate` → `streamlit run app.py` → **Load sample da
 
 ## Verified results (reproducible, live Gemini API)
 
-Full pipeline on the current 67-customer / 1,971-transaction dataset (real Gemini
+Full pipeline on the previous 67-customer / 1,971-transaction dataset (real Gemini
 extraction + rationale) — one representative run, showing the 11 flagged customers
 (56 others correctly score 0/Low and are omitted here):
 

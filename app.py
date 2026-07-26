@@ -536,6 +536,14 @@ def drilldown_tab(result: Dict[str, Any]) -> None:
     with gauge:
         st.plotly_chart(_score_gauge(er.score, er.tier), use_container_width=True)
 
+    sanctions_signals = [s for s in er.signals if s.code == "SANCTIONS_LIST_MATCH"]
+    if sanctions_signals:
+        st.markdown(
+            chip("OFAC SDN match - immediate sanctions review", TIER_COLORS["Critical"]),
+            unsafe_allow_html=True,
+        )
+        st.error(md_safe(sanctions_signals[0].evidence))
+
     if er.signals:
         st.markdown("#### How the score was built")
         st.plotly_chart(_score_waterfall(er), use_container_width=True)

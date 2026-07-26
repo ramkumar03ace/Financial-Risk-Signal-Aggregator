@@ -58,6 +58,9 @@ CASH_INTENSIVE_RATIO = 0.60
 # Adverse-media severity (from LLM extraction) that counts as a signal.
 ADVERSE_MEDIA_MIN_SEVERITY = "medium"  # one of: low, medium, high
 
+# Fuzzy match threshold for the committed OFAC SDN snapshot.
+SANCTIONS_MATCH_THRESHOLD = 0.88
+
 # High-risk / sanctioned counterparty jurisdictions (illustrative, ISO-2 codes).
 HIGH_RISK_COUNTRIES = {"IR", "KP", "SY", "MM", "AF", "RU"}
 
@@ -76,6 +79,7 @@ WEIGHTS = {
     "PEP_EXPOSURE": 15,
     "CASH_INTENSIVE": 10,
     "ADVERSE_MEDIA": 20,
+    "SANCTIONS_LIST_MATCH": 35,
 }
 
 # ---------------------------------------------------------------------------

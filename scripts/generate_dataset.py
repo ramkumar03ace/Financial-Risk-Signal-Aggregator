@@ -295,6 +295,23 @@ def gen_kyc_adverse_case(cid: str, acct: str, name: str) -> tuple[dict, list, st
     return profile, txns, alert
 
 
+def gen_real_sdn_match_case(cid: str, acct: str, name: str) -> tuple[dict, list, str | None]:
+    """Near-exact OFAC SDN counterparty match, below other wire thresholds."""
+    profile = {
+        "customer_id": cid, "name": name, "kyc_status": "verified",
+        "base_risk_rating": "medium", "account_open_date": "2022-02-18", "country": "US",
+        "is_pep": False, "expected_monthly_volume": 65000, "occupation": "Import Consultant",
+    }
+    base = datetime(2026, 6, 18, 13, 30)
+    txns = [
+        [f"g_{cid}_consulting", fmt(base - timedelta(days=12)), cid, acct, 62000, "USD", "salary", "Trade Advisory Payroll", "US", "online"],
+        # Near-exact match for real OFAC SDN entry "BANCO NACIONAL DE CUBA".
+        [f"g_{cid}_sdn", fmt(base), cid, acct, 48000, "USD", "wire_out", "Banco Nacional Cuba", "CU", "online"],
+        [f"g_{cid}_rent", fmt(base + timedelta(days=3)), cid, acct, 1800, "USD", "payment", "City Rentals", "US", "online"],
+    ]
+    return profile, txns, None
+
+
 NEW_SCENARIO_GENERATORS = [
     gen_structuring_case,
     gen_sanctions_pep_case,
@@ -303,6 +320,7 @@ NEW_SCENARIO_GENERATORS = [
     gen_cash_intensive_case,
     gen_round_number_case,
     gen_kyc_adverse_case,
+    gen_real_sdn_match_case,
 ]
 
 # ---------------------------------------------------------------------------
@@ -370,7 +388,7 @@ def main():
     transactions = [list(row) for row in ORIGINAL_TRANSACTIONS]
     alert_blocks = [ORIGINAL_ALERTS.strip()]
 
-    # New suspicious archetypes: cust_006..cust_012
+    # New suspicious archetypes: cust_006 onward.
     for i, gen in enumerate(NEW_SCENARIO_GENERATORS, start=6):
         cid = f"cust_{i:03d}"
         acct = f"acct_{1000 + i}"
@@ -381,9 +399,10 @@ def main():
         if alert:
             alert_blocks.append(alert)
 
-    # Clean background customers: cust_013..cust_067 (55 customers).
+    # Clean background customers: keep 55 controls after the planted scenarios.
     n_clean = 55
-    for i in range(13, 13 + n_clean):
+    clean_start = 6 + len(NEW_SCENARIO_GENERATORS)
+    for i in range(clean_start, clean_start + n_clean):
         cid = f"cust_{i:03d}"
         acct = f"acct_{1000 + i}"
         profile, txns = gen_clean_customer(cid, acct)

@@ -7,3 +7,4 @@ plotly>=5.18
 networkx>=3.0
 pydantic>=2.0
 pytest>=8.0
+rapidfuzz>=3.0

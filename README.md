@@ -56,6 +56,7 @@ so it always works.
 |---|---|
 | Language | Python 3.11+ |
 | Data | pandas |
+| Sanctions screening | OFAC SDN CSV snapshot (`data/sdn_snapshot.csv`) + rapidfuzz/difflib fuzzy matching; see [`src/sanctions.py`](src/sanctions.py) |
 | LLM | **Multi-provider, both verified live** (sidebar-selectable) — Google Gemini (default) and NVIDIA NIM (or any OpenAI-compatible API: OpenAI, Groq, …) via the `openai` SDK, with a built-in **Gemini vs NVIDIA comparison** view. See [`src/llm.py`](src/llm.py) — `get_provider()` / `_generate()` are the only provider-aware functions; everything else is provider-agnostic. |
 | UI | Streamlit (`st.popover` + `st.chat_message`/`st.chat_input` for the floating chat) |
 | Charts | Plotly (bar charts, score gauge, score-breakdown waterfall, counterparty network graph) |
@@ -88,17 +89,24 @@ endpoint model (e.g. `openai/gpt-oss-20b`), click **Generate API Key**, copy the
 ## Data assumptions
 
 - Synthetic dataset generated for demonstration — **no proprietary or client data**.
-- Scale: **67 customers, 1,971 transactions**, generated with
+- Scale: **68 customers, 1,974 transactions**, generated with
   [`scripts/generate_dataset.py`](scripts/generate_dataset.py) (Faker + fixed seed, so
-  it's reproducible). 12 customers carry a distinct planted risk typology
+  it's reproducible). 13 customers carry a distinct planted risk typology
   (structuring, sanctions/PEP, layering, velocity spike, cash-intensive, round-number
-  wire, KYC+adverse-media); the remaining 55 are genuinely clean, normal-activity
-  customers — proving the system flags the few that matter (11/67) rather than
+  wire, KYC+adverse-media, real OFAC SDN fuzzy match); the remaining 55 are genuinely clean, normal-activity
+  customers — proving the system flags the few that matter rather than
   everyone. Two of the flagged customers (Joshua Diaz, Jordan Johnson) are
   deliberately linked through a shared wire counterparty ("Silver Crescent
   Trading") so the counterparty network graph has a real, non-trivial pattern
   to reveal, not an empty chart.
 - All amounts are USD; one row per transaction.
+- The sample includes one planted real-list sanctions scenario: Scott Roberts wires
+  to "Banco Nacional Cuba", which fuzzy-matches the OFAC SDN entry
+  "BANCO NACIONAL DE CUBA".
+- `data/sdn_snapshot.csv` is a committed OFAC SDN snapshot downloaded from
+  <https://www.treasury.gov/ofac/downloads/sdn.csv> on 2026-07-26. The demo reads
+  this local snapshot for reliability; a production system should refresh it
+  periodically and retain source/version metadata.
 - Thresholds (e.g. `$10k` CTR line, `$50k` wire) are **illustrative and fully
   configurable** in [`config.py`](config.py).
 - External alerts are unstructured text; entities are matched by customer **name**.
@@ -149,9 +157,9 @@ Run the rules-only CLI: `python -m src.scoring`
 > media linking him to a bribery probe. The combination of independent signals
 > warrants a Suspicious Activity Report."
 
-Across the full sample (67 customers), only **11 are flagged** and **56 score 0/Low**
-— including the explicit control customer *Priya Shah* — demonstrating the model
-prioritises rather than over-flagging at realistic scale.
+Across the full sample (68 customers), only the planted risk scenarios are flagged,
+while the explicit control customer *Priya Shah* remains unflagged — demonstrating
+the model prioritises rather than over-flagging at realistic scale.
 
 ## Deployment
 
