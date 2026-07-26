@@ -72,7 +72,7 @@ flowchart TD
 - **Cost- and latency-aware.** The LLM is only invoked for customers where at least one
   rule already fired (`if entity_risk.signals and is_available()` in `src/llm.py`).
   Clean customers get an instant templated response, no API call. On the current
-  67-customer dataset this means ~13 Gemini calls total (not 67), which is what makes
+  68-customer dataset this means ~13 Gemini calls total (not 68), which is what makes
   scaling the demo up practical on a free API tier.
 - **Graceful degradation.** Every Gemini call has a deterministic fallback — a
   heuristic keyword extractor for alerts, a templated rationale for entity explanations.
@@ -159,7 +159,7 @@ is never given write access to the score itself — it can restate it, never cha
 
 **Precision vs. sensitivity, tested at scale.** A tool that flags every customer is
 useless to an analyst. Rather than relying on a single hand-picked "clean" example,
-the sample dataset was deliberately scaled to 67 customers with 56 genuinely clean —
+the sample dataset was deliberately scaled to 68 customers with 55 genuinely clean —
 and the register correctly leaves all 56 at 0/Low. That's a meaningfully stronger
 precision claim than one control case, and it's what pushed a UI fix: the original
 "plot every customer" chart became unreadable at this scale, so the dashboard was
