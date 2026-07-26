@@ -1,0 +1,14 @@
+COMPLIANCE INBOX - SHOWCASE ALERTS
+(Compact demo dataset built to highlight shared counterparties, OFAC screening, and analyst rationale.)
+
+[Analyst note] Maya Chen received a large inbound wire from Cedar Exchange House and sent nearly the same amount to Orion Trade Brokers within hours. Orion Trade Brokers appears in multiple customer files and is tied to a high-risk jurisdiction.
+
+[Public integrity bulletin] Omar Rahman, a municipal procurement advisor, is a politically exposed person. His recent wire to Orion Trade Brokers was escalated by transaction monitoring.
+
+[Nightly sanctions screen] Scott Roberts wired funds to "Banco Nacional Cuba", a close match to the OFAC SDN entry BANCO NACIONAL DE CUBA. Treat as a high-priority sanctions review.
+
+[Nightly sanctions screen] Luis Martinez also wired funds to "Banco Nacional Cuba", creating a second shared-counterparty link to the same OFAC hit.
+
+[Branch review] Amina Haddad made several cash deposits just below the reporting threshold within a short window. KYC is still pending.
+
+Control review: Priya Shah, Noah Williams, Grace Miller, and Kenji Tanaka show routine salary and household payments only. No adverse findings.

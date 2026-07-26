@@ -89,6 +89,12 @@ endpoint model (e.g. `openai/gpt-oss-20b`), click **Generate API Key**, copy the
 ## Data assumptions
 
 - Synthetic dataset generated for demonstration — **no proprietary or client data**.
+- The app includes **two selectable example datasets** in the sidebar:
+  **Full AML sample** for a broad 68-customer portfolio, and
+  **Network + sanctions showcase** for a compact 10-customer demo with dense shared
+  counterparties and two OFAC SDN hits. Use **Preview selected example data** or
+  **Show loaded data tables** in the sidebar to inspect the CSV/JSON/text inputs
+  inside the app.
 - Scale: **68 customers, 1,974 transactions**, generated with
   [`scripts/generate_dataset.py`](scripts/generate_dataset.py) (Faker + fixed seed, so
   it's reproducible). 13 customers carry a distinct planted risk typology
@@ -134,7 +140,8 @@ copy .env.example .env         # then edit .env and paste your key
 streamlit run app.py
 ```
 
-In the app: click **Load sample dataset → Run risk analysis**.
+In the app: choose an **Example dataset**, click **Load selected example dataset**,
+then **Run risk analysis**.
 
 Run the tests: `pytest -q`
 Run the rules-only CLI: `python -m src.scoring`

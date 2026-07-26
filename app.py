@@ -28,6 +28,23 @@ load_dotenv()
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
+SAMPLE_DATASETS = {
+    "baseline": {
+        "label": "Full AML sample",
+        "description": "68 customers, broad typologies, OFAC snapshot case, and clean controls.",
+        "transactions": "transactions.csv",
+        "customers": "customers.json",
+        "alerts": "external_alerts.txt",
+    },
+    "showcase": {
+        "label": "Network + sanctions showcase",
+        "description": "10 customers, dense shared-counterparty clusters, and two OFAC SDN hits.",
+        "transactions": "showcase_transactions.csv",
+        "customers": "showcase_customers.json",
+        "alerts": "showcase_external_alerts.txt",
+    },
+}
+
 
 def md_safe(text: str) -> str:
     """Escape lone $ so Streamlit's markdown renderer doesn't treat dollar
@@ -331,8 +348,16 @@ def sidebar() -> None:
         st.sidebar.caption(f"Accepted key name(s): {key_names}")
 
     st.sidebar.subheader("1 · Load data")
-    if st.sidebar.button("Load sample dataset", use_container_width=True):
-        _load_sample_into_state()
+    sample_key = st.sidebar.selectbox(
+        "Example dataset",
+        options=list(SAMPLE_DATASETS.keys()),
+        format_func=lambda key: SAMPLE_DATASETS[key]["label"],
+        key="sample_dataset_key",
+    )
+    st.sidebar.caption(SAMPLE_DATASETS[sample_key]["description"])
+    if st.sidebar.button("Load selected example dataset", use_container_width=True):
+        _load_sample_into_state(sample_key)
+    st.sidebar.checkbox("Preview selected example data", key="show_sample_preview")
 
     if st.session_state.get("sample_loaded"):
         n_cust = len(st.session_state.get("customers", []))
@@ -341,6 +366,9 @@ def sidebar() -> None:
             chip(f"Sample loaded — {n_cust} customers, {n_txn} transactions", OK_COLOR),
             unsafe_allow_html=True,
         )
+
+    if st.session_state.get("sample_loaded"):
+        st.sidebar.checkbox("Show loaded data tables", key="show_loaded_data")
 
     txn_file = st.sidebar.file_uploader("Transactions (CSV)", type=["csv"])
     cust_file = st.sidebar.file_uploader("Customer records (JSON)", type=["json"])
@@ -359,17 +387,26 @@ def sidebar() -> None:
         _run_comparison_from_inputs(txn_file, cust_file, alert_text)
 
 
-def _load_sample_into_state() -> None:
+def _sample_path(sample_key: str, kind: str) -> str:
+    return os.path.join(DATA_DIR, SAMPLE_DATASETS[sample_key][kind])
+
+
+def _load_sample_into_state(sample_key: str = "baseline") -> None:
+    sample = SAMPLE_DATASETS[sample_key]
     st.session_state["txns_df"] = load_transactions(
-        os.path.join(DATA_DIR, "transactions.csv")
+        _sample_path(sample_key, "transactions")
     )
     st.session_state["customers"] = load_customers(
-        os.path.join(DATA_DIR, "customers.json")
+        _sample_path(sample_key, "customers")
     )
     st.session_state["alert_text"] = load_alerts(
-        os.path.join(DATA_DIR, "external_alerts.txt")
+        _sample_path(sample_key, "alerts")
     )
+    st.session_state["sample_key_loaded"] = sample_key
+    st.session_state["sample_label"] = sample["label"]
     st.session_state["sample_loaded"] = True
+    st.session_state.pop("result", None)
+    st.session_state.pop("model_comparison", None)
     st.rerun()
 
 
@@ -424,6 +461,57 @@ def _run_comparison_from_inputs(txn_file, cust_file, alert_text) -> None:
             st.session_state["comparison_ready"] = True
     except Exception as exc:
         st.sidebar.error(f"Could not compare models: {exc}")
+
+
+def dataset_preview_panel(sample_key: str) -> None:
+    sample = SAMPLE_DATASETS[sample_key]
+    txns_df = load_transactions(_sample_path(sample_key, "transactions"))
+    customers = load_customers(_sample_path(sample_key, "customers"))
+    alerts = load_alerts(_sample_path(sample_key, "alerts"))
+    _render_data_preview(
+        f"Selected example data: {sample['label']}",
+        txns_df,
+        customers,
+        alerts,
+        sample["description"],
+    )
+
+
+def loaded_data_panel() -> None:
+    if "txns_df" not in st.session_state or "customers" not in st.session_state:
+        return
+    _render_data_preview(
+        f"Loaded data: {st.session_state.get('sample_label', 'Custom upload')}",
+        st.session_state["txns_df"],
+        st.session_state["customers"],
+        st.session_state.get("alert_text", ""),
+        "This is the exact data currently used when you run analysis.",
+    )
+
+
+def _render_data_preview(
+    title: str,
+    txns_df: pd.DataFrame,
+    customers: List[Dict[str, Any]],
+    alerts: str,
+    caption: str,
+) -> None:
+    with st.expander(title, expanded=True):
+        st.caption(caption)
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Customers", len(customers))
+        c2.metric("Transactions", len(txns_df))
+        c3.metric("Alert characters", len(alerts or ""))
+
+        tabs = st.tabs(["Transactions", "Customers", "Alerts"])
+        with tabs[0]:
+            st.dataframe(txns_df.head(100), use_container_width=True, hide_index=True)
+            if len(txns_df) > 100:
+                st.caption(f"Showing first 100 of {len(txns_df)} transactions.")
+        with tabs[1]:
+            st.dataframe(pd.DataFrame(customers), use_container_width=True, hide_index=True)
+        with tabs[2]:
+            st.code(alerts or "(no alert text)", language="text")
 
 
 # ---------------------------------------------------------------------------
@@ -935,9 +1023,16 @@ def main() -> None:
         "prioritised, risk-scored view — deterministic rules score, Gemini explains."
     )
 
+    selected_sample_key = st.session_state.get("sample_dataset_key", "baseline")
+    if st.session_state.get("show_sample_preview"):
+        dataset_preview_panel(selected_sample_key)
+    if st.session_state.get("show_loaded_data"):
+        loaded_data_panel()
+
     if "result" not in st.session_state:
         st.info(
-            "Click **Load sample dataset**, then **Run risk analysis** to see the "
+            "Choose an example dataset, click **Load selected example dataset**, then "
+            "**Run risk analysis** to see the "
             "prototype end-to-end. You can also upload your own CSV/JSON and paste alerts."
         )
         with st.expander("How scoring works"):

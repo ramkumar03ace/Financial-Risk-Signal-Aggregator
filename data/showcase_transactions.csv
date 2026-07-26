@@ -1,0 +1,22 @@
+txn_id,timestamp,customer_id,account_id,amount,currency,txn_type,counterparty,counterparty_country,channel
+sd004,2025-09-01 10:00,demo_003,acct_d003,700,USD,payment,Office Lease Co,DE,online
+sd014,2026-07-01 08:00,demo_007,acct_d007,6800,USD,salary,School District Payroll,US,online
+sd018,2026-07-01 08:15,demo_009,acct_d009,8200,USD,salary,Regional Hospital Payroll,CA,online
+sd016,2026-07-01 08:30,demo_008,acct_d008,5900,USD,salary,Acme Corp Payroll,US,online
+sd020,2026-07-01 09:00,demo_010,acct_d010,9100,USD,salary,Design Studio Payroll,JP,online
+sd015,2026-07-03 11:00,demo_007,acct_d007,1550,USD,payment,City Rentals,US,online
+sd017,2026-07-04 17:20,demo_008,acct_d008,240,USD,payment,Regional Electric Board,US,mobile
+sd021,2026-07-05 10:10,demo_010,acct_d010,1200,USD,payment,Parkview Apartments,JP,online
+sd019,2026-07-06 18:30,demo_009,acct_d009,180,USD,payment,Grocery Mart,CA,mobile
+sd001,2026-07-08 09:00,demo_001,acct_d001,220000,USD,wire_in,Cedar Exchange House,AE,online
+sd002,2026-07-08 16:30,demo_001,acct_d001,214000,USD,wire_out,Orion Trade Brokers,RU,online
+sd003,2026-07-09 11:00,demo_002,acct_d002,118000,USD,wire_out,Orion Trade Brokers,RU,online
+sd005,2026-07-10 10:00,demo_003,acct_d003,90000,USD,wire_in,Cedar Exchange House,AE,online
+sd006,2026-07-10 18:00,demo_003,acct_d003,88000,USD,wire_out,Orion Trade Brokers,RU,online
+sd007,2026-07-11 13:30,demo_004,acct_d004,48000,USD,wire_out,Banco Nacional Cuba,CU,online
+sd008,2026-07-12 14:15,demo_005,acct_d005,42000,USD,wire_out,Banco Nacional Cuba,CU,online
+sd009,2026-07-13 09:10,demo_005,acct_d005,12000,USD,wire_in,Cedar Exchange House,AE,online
+sd010,2026-07-15 09:05,demo_006,acct_d006,9400,USD,cash_deposit,Self,GB,branch
+sd011,2026-07-15 13:20,demo_006,acct_d006,9600,USD,cash_deposit,Self,GB,branch
+sd012,2026-07-16 10:40,demo_006,acct_d006,9300,USD,cash_deposit,Self,GB,branch
+sd013,2026-07-17 12:10,demo_006,acct_d006,9100,USD,cash_deposit,Self,GB,branch

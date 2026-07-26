@@ -10,6 +10,32 @@ Gemini API key, deployed to Railway with a custom-designed UI, pushed to GitHub,
 OR a video — the hosted link is already done, so the video is optional polish, not a
 blocker).
 
+**Two-example-dataset round (2026-07-26, later):** added a compact demo dataset and
+sidebar data-inspection controls so the newer Network and OFAC features are easier to
+show live.
+
+1. **New showcase dataset**: added `scripts/generate_showcase_dataset.py`, which writes
+   `data/showcase_customers.json`, `data/showcase_transactions.csv`, and
+   `data/showcase_external_alerts.txt`. This is intentionally small (10 customers /
+   21 transactions) and dense with shared counterparties, unlike the broader baseline
+   portfolio.
+2. **Better network story**: the showcase dataset has three visible shared wire
+   counterparties: "Cedar Exchange House" links 3 customers, "Orion Trade Brokers"
+   links 3 customers, and "Banco Nacional Cuba" links 2 customers. This makes the
+   Network tab meaningful immediately instead of relying on the larger sample's more
+   diffuse patterns.
+3. **Better sanctions story**: Scott Roberts and Luis Martinez both wire to
+   "Banco Nacional Cuba", a near-match to the real OFAC SDN entry "BANCO NACIONAL DE
+   CUBA", so the sanctions rule and the network graph reinforce each other.
+4. **UI controls**: the sidebar now has an **Example dataset** selector with two
+   choices: "Full AML sample" and "Network + sanctions showcase". It also includes
+   **Preview selected example data** and **Show loaded data tables** checkboxes so
+   users can inspect the CSV/JSON/alert text from inside the app.
+5. **Validation**: `pytest -q` still passes (12 tests). Real Streamlit UI smoke test
+   selected the showcase dataset, loaded it, ran analysis, and verified the Network
+   tab listed "Orion Trade Brokers" and "Banco Nacional Cuba". Screenshot:
+   `docs/screenshots/dataset_selector_verify.png`.
+
 **OFAC SDN sanctions-screening round (2026-07-26):** added real-list sanctions
 screening without changing the rule-only scoring architecture.
 
@@ -36,7 +62,8 @@ screening without changing the rule-only scoring architecture.
    get lost in the regular evidence table.
 6. **Validation**: added `tests/test_sanctions.py` for real SDN exact/near-exact
    matches and a negative `Priya Shah` case; added a scoring assertion that Scott
-   Roberts has `SANCTIONS_LIST_MATCH`. `pytest -q` passes: 11 tests.
+   Roberts has `SANCTIONS_LIST_MATCH`. `pytest -q` passes: 12 tests after the
+   later dataset-selector round.
 
 **Network graph + deck refresh round (2026-07-25, later still):** user asked "is there
 more to improve, and what about a counterparty network graph" (a previously-documented
